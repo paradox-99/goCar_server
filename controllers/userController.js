@@ -2,7 +2,9 @@ const connectDB = require('../config/db')
 
 const showAllUsers = async(req, res) => {
      const id = 2
-     const query = `SELECT * FROM users WHERE  id = ${id}`
+     const query = `SELECT *
+      FROM users
+       WHERE  id = ${id}`
 
      connectDB.query(query, (err, results) => {
           if(err){
