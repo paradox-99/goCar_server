@@ -18,7 +18,7 @@ const showCarByBrand = async (req, res) => {
      const query = `
           SELECT * 
           From vehicles
-          where brand = ${brand}
+          where brand = '${brand}'
      `
 
      connectDB.query(query, (err, results) => {
