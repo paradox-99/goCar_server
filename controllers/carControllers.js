@@ -133,7 +133,7 @@ const showAgencyCars = async (req, res) => {
           SELECT vehicles.*
           FROM (agencies 
           JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
-          WHERE agencies.agency_id = '${id}'
+          WHERE agencies.agency_id = ?
      `
      }
      else {
@@ -142,11 +142,11 @@ const showAgencyCars = async (req, res) => {
           FROM (( users
           JOIN agencies ON users._id = agencies.owner_id)
           JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
-          WHERE users._id = '${id}'
+          WHERE users._id = ?
      `
      }
 
-     connectDB.query(query, (err, results) => {
+     connectDB.query(query, [id], (err, results) => {
           if (err) {
                console.log('fetching error: ', err);
                return res.status(500).json({ error: 'Failed to retrieve users' });
@@ -163,9 +163,9 @@ const agencyActiveBookingCars = async (req, res) => {
           JOIN agencies ON users._id = agencies.owner_id)
           JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
           JOIN booking_info ON vehicles.vehicle_id = booking_info.vehicle_id)
-          WHERE users._id = '${id}'
+          WHERE users._id = ?
      `
-     connectDB.query(query, (err, results) => {
+     connectDB.query(query, [id], (err, results) => {
           if (err) {
                console.log('fetching error: ', err);
                return res.status(500).json({ error: 'Failed to retrieve users' });

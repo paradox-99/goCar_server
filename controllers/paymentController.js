@@ -1,6 +1,6 @@
 const connectDB = require('../config/db')
 const SSLCommerzPayment = require('sslcommerz-lts');
-const crypto = require('crypto');
+const { generateTransactionId, generateBookingId, generatePaymentId } = require('./createIDs');
 
 const store_id = process.env.STORE_ID
 const store_passwd = process.env.STORE_PASS
@@ -8,25 +8,6 @@ const is_live = false //true for live, false for sandbox
 
 let booking_id = '';
 let payment_id = '';
-
-function generatePaymentId() {
-     const prefix = "PAY-";
-     const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
-     return `${prefix}${uniqueNumber}`;
-}
-
-function generateBookingId() {
-     const prefix = "BOOK-";
-     const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
-     return `${prefix}${uniqueNumber}`;
-}
-
-function generateTransactionId() {
-     const prefix = "TRX";
-     const timestamp = Date.now();
-     const randomValue = crypto.randomBytes(4).toString("hex"); // Generates a random 8-character hex string
-     return `${prefix}_${timestamp}${randomValue}`;
-}
 
 const makePayment = async (req, res) => {
      let { driver_cost, pickup_date, dropoff_date, total_cost, initial_cost, total_rent_hours, user_id, name, email, phone, address, vehicle_id } = req.body;

@@ -15,7 +15,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "gocar-server": "file:",
-    "mysql": "^2.18.1",
+    "mysql2": "^3.14.3",
     "sslcommerz-lts": "^1.1.0"
   }
 }
