@@ -24,6 +24,8 @@ const getUserRole = async (req, res) => {
           FROM users
           WHERE email = ?`
 
+     // const query2 = `SELECT users.*, address_info.* FROM users JOIN address_info ON users.address_id = address_info.address_id WHERE users.email = '${email}'`
+
      connectDB.query(query, [email], (err, results) => {
           if (err) {
                console.log('fetching error: ', err);
@@ -35,6 +37,11 @@ const getUserRole = async (req, res) => {
 
 const getUser = async (req, res) => {
      const email = req.params.email;
+     console.log(req.user.email);
+     
+     if(req.user.email !== email){
+          return res.status(403).json({ error: 'Forbidden access' });
+     }
 
      const query = `
           SELECT users.*, address_info.*
@@ -120,7 +127,6 @@ const checkPhone = async(req, res) => {
 
 const createUser = async (req, res) => {
      const { address, area, name, email, phone, gender, nid, birthdate, profilePicture } = req.body;
-     console.log(req.body);
 
      const userId = createUserId();
      const addressId = createAddressId();

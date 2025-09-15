@@ -11,10 +11,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.0.1",
     "gocar-server": "file:",
+    "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.3",
     "sslcommerz-lts": "^1.1.0"
   }
