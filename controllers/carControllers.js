@@ -1,4 +1,4 @@
-const connectDB = require('../config/db')
+const pool = require('../config/db')
 
 const showCarByBrand = async (req, res) => {
      const brand = req.params.brand

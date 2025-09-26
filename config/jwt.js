@@ -48,7 +48,6 @@ const verifyUser = async (req, res, next) => {
         }
         next();
     })
-    next();
 }
 
 const verifyAgency = async (req, res, next) => {
@@ -69,7 +68,6 @@ const verifyAgency = async (req, res, next) => {
         }
         next();
     })
-    next();
 }
 
 const verifyDriver = async (req, res, next) => {
@@ -90,7 +88,6 @@ const verifyDriver = async (req, res, next) => {
         }
         next();
     })
-    next();
 }
 
 const verifyAdmin = async (req, res, next) => {
@@ -111,7 +108,6 @@ const verifyAdmin = async (req, res, next) => {
         }
         next();
     })
-    next();
 }
 
 module.exports = { generateToken, verifyToken, verifyUser, verifyAgency, verifyDriver, verifyAdmin };

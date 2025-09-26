@@ -1,4 +1,4 @@
-const connectDB = require('../config/db')
+const pool = require('../config/db');
 
 const getAllAgency = async (req, res) => {
      const query = `
@@ -7,34 +7,34 @@ const getAllAgency = async (req, res) => {
           join address_info
           on agencies.address_id = address_info.address_id
      `
-
-     connectDB.query(query, (err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve users' });
-          }
-          res.status(200).json(results);
-     })
+     try {
+          const results = await pool.query(query);
+          res.json(results.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
+// agency details by user query
 const getAgencyDetails = async (req, res) => {
-     const agencyId = req.params.id
+     const agencyId = req.params.id;
      const query = `
           SELECT agencies.*, address_info.*, users.name, users.email
           FROM ((agencies
           JOIN address_info ON agencies.address_id = address_info.address_id)
           JOIN users ON agencies.owner_id = users._id)
-          WHERE agencies.agency_id = ?
+          WHERE agencies.agency_id = $1
      `
-     connectDB.query(query, [agencyId], (err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve users' });
-          }
-          res.status(200).json(results[0]);
-     })
+
+     try {
+          const result = await pool.query(query, [agencyId]);
+          res.json(result.rows[0]);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
+// agency details by owner query
 const getAgencyDetails2 = async (req, res) => {
      const ownerId = req.params.id
      const query = `
@@ -42,16 +42,15 @@ const getAgencyDetails2 = async (req, res) => {
           FROM ((agencies
           JOIN address_info ON agencies.address_id = address_info.address_id)
           JOIN users ON agencies.owner_id = users._id)
-          WHERE agencies.owner_id = ?
+          WHERE agencies.owner_id = $1
      `
-     
-     connectDB.query(query, [ownerId],(err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve users' });
-          }
-          res.status(200).json(results[0]);
-     })
+
+     try {
+          const result = await pool.query(query, [ownerId]);
+          res.json(result.rows[0]);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
 const getAgencyOwner = async (req, res) => {
@@ -59,15 +58,14 @@ const getAgencyOwner = async (req, res) => {
      const query = `
           SELECT name
           FROM users
-          WHERE _id = ?
+          WHERE _id = $1
      `
-     connectDB.query(query,[ownerId], (err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve users' });
-          }
-          res.status(200).json(results[0]);
-     })
+     try {
+          const result = await pool.query(query, [ownerId]);
+          res.json(result.rows[0]);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
 const getAllBookings = async (req, res) => {
@@ -78,15 +76,12 @@ const getAllBookings = async (req, res) => {
           JOIN vehicles ON booking_info.vehicle_id = vehicles.vehicle_id)
           JOIN agencies ON vehicles.agency_id = agencies.agency_id)
      `
-     console.log(query);
-
-     connectDB.query(query, (err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve bookings' });
-          }
-          res.status(200).json(results);
-     })
+     try {
+          const result = await pool.query(query);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
 

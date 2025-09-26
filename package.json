@@ -18,7 +18,7 @@
     "express-rate-limit": "^8.0.1",
     "gocar-server": "file:",
     "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.14.3",
+    "pg": "^8.16.3",
     "sslcommerz-lts": "^1.1.0"
   }
 }

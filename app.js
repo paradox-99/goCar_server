@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const ratelimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const ratelimit = require('express-rate-limit');
 
 const userRoutes = require('./routes/userRoutes');
 const carRoutes = require('./routes/carRoutes');
@@ -19,6 +19,7 @@ app.use(cors({
     credentials: true
 }));
 
+// rate limiting
 const limiter = ratelimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100,

@@ -1,19 +1,16 @@
-const connectDB = require('../config/db');
+const pool = require('../config/db');
 const { createUserId, createAddressId } = require('./createIDs');
 
 const showAllUsers = async (req, res) => {
-     const query = `SELECT *
-                    FROM users
-                    JOIN address_info ON users.address_id = address_info.address_id
-                    `
 
-     connectDB.query(query, (err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve users' });
-          }
-          res.status(200).json(results);
-     })
+     const query = "SELECT * FROM users JOIN address_info ON users.address_id = address_info.address_id";
+
+     try {
+          const result = await pool.query(query);
+          res.json(result.rows);
+     } catch (err) {
+          res.status(500).send(err.message);
+     }
 }
 
 const getUserRole = async (req, res) => {
@@ -22,24 +19,20 @@ const getUserRole = async (req, res) => {
      const query = `
           SELECT _id, name, userRole
           FROM users
-          WHERE email = ?`
+          WHERE email = $1`
 
-     // const query2 = `SELECT users.*, address_info.* FROM users JOIN address_info ON users.address_id = address_info.address_id WHERE users.email = '${email}'`
-
-     connectDB.query(query, [email], (err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve user role' });
-          }
-          res.status(200).json(results);
-     })
+     try {
+          const result = await pool.query(query, [email]);
+          res.json(result.rows);
+     } catch (err) {
+          res.status(500).send(err.message);
+     }
 }
 
 const getUser = async (req, res) => {
      const email = req.params.email;
-     console.log(req.user.email);
-     
-     if(req.user.email !== email){
+
+     if (req.user.email !== email) {
           return res.status(403).json({ error: 'Forbidden access' });
      }
 
@@ -47,15 +40,15 @@ const getUser = async (req, res) => {
           SELECT users.*, address_info.*
           FROM users
           JOIN address_info ON users.address_id = address_info.address_id
-          WHERE users.email = '${email}'
+          WHERE users.email = $1
      `
-     connectDB.query(query, [email], (err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve user' });
-          }
-          res.status(200).json(results[0]);
-     })
+
+     try {
+          const result = await pool.query(query, [email]);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
 const getBookings = async (req, res) => {
@@ -65,64 +58,58 @@ const getBookings = async (req, res) => {
           SELECT *
           FROM booking_info
           JOIN vehicles ON booking_info.vehicle_id = vehicles.vehicle_id
-          WHERE user_id = ?
+          WHERE user_id = $1
      `
-     connectDB.query(query, [id], (err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve bookings' });
-          }
-          res.status(200).json(results);
-     })
+     try {
+          const result = await pool.query(query, [id]);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
-const checkNID = async(req, res) => {
+const checkNID = async (req, res) => {
      const nid = req.params.nid;
-     
+
      const query = `
           SELECT *
           FROM users
-          WHERE nid = ?
+          WHERE nid = $1
      `
-     connectDB.query(query, [nid], (err, results) => {
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve user by NID' });
-          }
-          else if (results.length === 0) {
-               console.log("code 0");
-               
+
+     try {
+          const result = await pool.query(query, [nid]);
+          if (result.rowCount === 0) {
                return res.status(200).json({ message: 'NID not found', code: 0 });
           }
-          else{
-               console.log("code 1");
-               
+          else {
                return res.status(200).json({ message: 'NID found', code: 1 });
           }
-     })
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
-const checkPhone = async(req, res) => {
+const checkPhone = async (req, res) => {
      const phone = req.params.phone;
-     
+
      const query = `
           SELECT *
           FROM users
-          WHERE phone = ?
+          WHERE phone = $1
      `
-     connectDB.query(query, [phone], (err, results) => {
-          console.log(results);
-          if (err) {
-               console.log('fetching error: ', err);
-               return res.status(500).json({ error: 'Failed to retrieve user by NID' });
-          }
-          else if (results.length === 0) {
+
+     try {
+          const result = await pool.query(query, [phone]);
+          if (result.rowCount === 0) {
                return res.status(200).json({ message: 'Phone not found', code: 0 });
           }
-          else{
+          else {
                return res.status(200).json({ message: 'Phone found', code: 1 });
           }
-     })
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
 const createUser = async (req, res) => {
@@ -138,31 +125,35 @@ const createUser = async (req, res) => {
      const license_status = "pending"
      const expire_date = null
      const experience = null
-     
+
      const addressQuery = `
           INSERT INTO address_info (address_id, district, upazilla, keyArea, area)
-          VALUES (?, ?, ?, ?, ?)
+          VALUES ($1, $2, $3, $4, $5)
      `;
 
-     connectDB.query(addressQuery, [addressId, address.district, address.upazilla, address.area, area], (err, addressResult) => {
-          if (err) {
-               console.log('Address insertion error: ', err);
-               return res.status(500).json({ error: 'Failed to create address' });
-          }
+     try {
+          const result = await pool.query(addressQuery, [addressId, address.district, address.upazilla, address.area, area]);
 
-          const userQuery = `
+          if (result.rowCount === 1) {
+               const userQuery = `
                INSERT INTO users (_id, address_id, name, email, phone, gender, nid, dob, image, userRole, verified, accountStatus, license_number, license_status, expire_date, experience)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `;
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+               `;
 
-          connectDB.query(userQuery, [userId, addressId, name, email, phone, gender, nid, birthdate, profilePicture, userRole, verified, accountStatus, license_number, license_status, expire_date, experience], (err, userResult) => {
-               if (err) {
-                    console.log('User insertion error: ', err);
-                    return res.status(500).json({ error: 'Failed to create user' });
+               const userResult = await pool.query(userQuery, [userId, addressId, name, email, phone, gender, nid, birthdate, profilePicture, userRole, verified, accountStatus, license_number, license_status, expire_date, experience]);
+
+               if (userResult.rowCount === 1) {
+                    return res.status(201).json({ message: 'User account created successfully', code: 1 });
+               } else {
+                    return res.status(500).json({ error: 'Failed to create user account.', code: 0 });
                }
-               res.status(201).json(userResult);
-          });
-     });
+          }
+          else {
+               return res.status(200).json({ message: 'Failed To Create user account.', code: 0 });
+          }
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
 }
 
-module.exports = { showAllUsers, getUserRole, getUser, getBookings, createUser, checkNID, checkPhone }
+module.exports = { showAllUsers, getUserRole, getUser, getBookings, createUser, checkNID, checkPhone };

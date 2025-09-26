@@ -1,7 +1,7 @@
 const express = require('express');
-const { generateToken, removeToken } = require('../config/jwt');
+const { generateToken } = require('../config/jwt');
 const Router = express.Router();
-const connectDB = require('../config/db');
+const pool = require('../config/db');
 
 Router.post("/jwt", async (req, res) => {
     const { email } = req.body;
@@ -9,20 +9,16 @@ Router.post("/jwt", async (req, res) => {
     const query = `
         SELECT _id AS id, userRole, email
         FROM users
-        WHERE email = ?
+        WHERE email = $1
         UNION
         SELECT _id AS id, 'driver' AS userRole, email
         FROM drivers
-        WHERE email = ? `;
+        WHERE email = $2 `;
 
-    connectDB.query(query, [email, email], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: "Server error" });
-        }
-
-        if (results.length !== 0) {
-            const token = generateToken(results[0]);
-            console.log("token genareted:", token);
+    try {
+        const result = await pool.query(query, [email, email]);
+        if (result.rowCount !== 0) {
+            const token = generateToken(result.rows[0]);
 
             res.cookie('accessToken', token, {
                 httpOnly: true,
@@ -35,12 +31,12 @@ Router.post("/jwt", async (req, res) => {
         else {
             res.json({ message: "User not found" });
         }
-    });
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
 })
 
 Router.post("/logout", (req, res) => {
-    console.log("logout route");
-
     res.clearCookie('accessToken', {
         maxAge: 0,
     }).send({ success: true, message: 'Logged out successfully' });
