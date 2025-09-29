@@ -140,12 +140,16 @@ const createUser = async (req, res) => {
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                `;
 
-               const userResult = await pool.query(userQuery, [userId, addressId, name, email, phone, gender, nid, birthdate, profilePicture, userRole, verified, accountStatus, license_number, license_status, expire_date, experience]);
+               try {
+                    const userResult = await pool.query(userQuery, [userId, addressId, name, email, phone, gender, nid, birthdate, profilePicture, userRole, verified, accountStatus, license_number, license_status, expire_date, experience]);
 
-               if (userResult.rowCount === 1) {
-                    return res.status(201).json({ message: 'User account created successfully', code: 1 });
-               } else {
-                    return res.status(500).json({ error: 'Failed to create user account.', code: 0 });
+                    if (userResult.rowCount === 1) {
+                         return res.status(201).json({ message: 'User account created successfully', code: 1 });
+                    } else {
+                         return res.status(500).json({ error: 'Failed to create user account.', code: 0 });
+                    }
+               } catch (error) {
+                    res.status(500).send(error.message);
                }
           }
           else {
