@@ -71,14 +71,21 @@ const getBookings = async (req, res) => {
 const checkNID = async (req, res) => {
      const nid = req.params.nid;
 
+     console.log("hit");
+     
      const query = `
-          SELECT *
+          SELECT _id
           FROM users
           WHERE nid = $1
+          UNION
+          SELECT _id
+          FROM drivers
+          WHERE nid = $2 
      `
 
      try {
-          const result = await pool.query(query, [nid]);
+          const result = await pool.query(query, [nid, nid]);
+          
           if (result.rowCount === 0) {
                return res.status(200).json({ message: 'NID not found', code: 0 });
           }
@@ -94,13 +101,17 @@ const checkPhone = async (req, res) => {
      const phone = req.params.phone;
 
      const query = `
-          SELECT *
+          SELECT _id
           FROM users
           WHERE phone = $1
+          UNION
+          SELECT _id
+          FROM drivers
+          WHERE phone = $2
      `
 
      try {
-          const result = await pool.query(query, [phone]);
+          const result = await pool.query(query, [phone, phone]);
           if (result.rowCount === 0) {
                return res.status(200).json({ message: 'Phone not found', code: 0 });
           }
