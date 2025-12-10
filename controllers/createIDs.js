@@ -7,7 +7,7 @@ export function createUserId() {
 }
 
 export function createAddressId() {
-     const prefix = "Add-";
+     const prefix = "ADD-";
      const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
      return `${prefix}${uniqueNumber}`;
 }

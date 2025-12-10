@@ -6,11 +6,11 @@ const showAllDrivers = async (req, res) => {
 
      try {
           const query = `
-               SELECT drivers.*, address_info.*
+               SELECT drivers.*, address.*
                FROM drivers
-               JOIN address_info
-               ON drivers.address_id = address_info.address_id
-               where address_info.district = $1
+               JOIN address
+               ON drivers.address_id = address.address_id
+               where address.district = $1
                `
           try {
                const result = await pool.query(query, [district]);
@@ -107,7 +107,7 @@ const createDriver = async (req, res) => {
      const availability = "Yes"
 
      const addressQuery = `
-          INSERT INTO address_info (address_id, district, upazilla, keyArea, area)
+          INSERT INTO address (address_id, district, upazilla, keyArea, area)
           VALUES ($1, $2, $3, $4, $5)
      `;
 

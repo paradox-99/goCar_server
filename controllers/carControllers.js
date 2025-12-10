@@ -4,10 +4,10 @@ const showCarByBrand = async (req, res) => {
      const brand = req.params.brand
      const query = `
           SELECT *
-          FROM ((address_info
-          JOIN agencies ON address_info.address_id = agencies.address_id)
-          JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
-          WHERE $1 = vehicles.brand
+          FROM ((address
+          JOIN agencies ON address.address_id = agencies.address_id)
+          JOIN cars ON agencies.agency_id = cars.agency_id)
+          WHERE $1 = cars.brand
      `
      try {
           const result = await pool.query(query, [brand]);
@@ -22,10 +22,10 @@ const showCarByType = async (req, res) => {
 
      const query = `
           SELECT *
-          FROM ((address_info
-          JOIN agencies ON address_info.address_id = agencies.address_id)
-          JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
-          WHERE $1 = vehicles.car_type
+          FROM ((address
+          JOIN agencies ON address.address_id = agencies.address_id)
+          JOIN cars ON agencies.agency_id = cars.agency_id)
+          WHERE $1 = cars.car_type
      `
 
      try {
@@ -40,10 +40,10 @@ const carsByQuery = async (req, res) => {
      const params = req.query;
      const query = `
           SELECT *
-          FROM ((address_info
-          JOIN agencies ON address_info.address_id = agencies.address_id)
-          JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
-          WHERE $1 = address_info.district && $2 = address_info.upazilla && $3 = address_info.keyArea
+          FROM ((address
+          JOIN agencies ON address.address_id = agencies.address_id)
+          JOIN cars ON agencies.agency_id = cars.agency_id)
+          WHERE $1 = address.district && $2 = address.upazilla && $3 = address.keyArea
      `
      try {
           const result = await pool.query(query, [params.district, params.upazilla, params.keyArea]);
@@ -58,20 +58,20 @@ const carsByFilter = async (req, res) => {
      let query = ''
      if (params.district) {
           query = `
-               SELECT vehicles.*
-               FROM ((address_info
-               JOIN agencies ON address_info.address_id = agencies.address_id)
-               JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
-               WHERE '${params.district}' = address_info.district
+               SELECT cars.*
+               FROM ((address
+               JOIN agencies ON address.address_id = agencies.address_id)
+               JOIN cars ON agencies.agency_id = cars.agency_id)
+               WHERE '${params.district}' = address.district
           `
      }
      else if (params.upazilla) {
           query = `
                SELECT *
-               FROM ((address_info
-               JOIN agencies ON address_info.address_id = agencies.address_id)
-               JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
-               WHERE '${params.upazilla}' = address_info.upazilla
+               FROM ((address
+               JOIN agencies ON address.address_id = agencies.address_id)
+               JOIN cars ON agencies.agency_id = cars.agency_id)
+               WHERE '${params.upazilla}' = address.upazilla
           `
      }
 
@@ -89,8 +89,8 @@ const cartCars = async (req, res) => {
 
      let query = `
           SELECT *
-          FROM vehicles
-          WHERE vehicle_id IN ($1)
+          FROM cars
+          WHERE car_id IN ($1)
      `
 
      try {
@@ -104,8 +104,8 @@ const cartCars = async (req, res) => {
 const showAllCars = async (req, res) => {
      let query = `
      SELECT *
-     FROM vehicles
-     JOIN agencies ON vehicles.agency_id = agencies.agency_id
+     FROM cars
+     JOIN agencies ON cars.agency_id = agencies.agency_id
      `
      try {
           const result = await pool.query(query);
@@ -121,18 +121,18 @@ const showAgencyCars = async (req, res) => {
 
      if (id.includes('AG')) {
           query = `
-          SELECT vehicles.*
+          SELECT cars.*
           FROM (agencies 
-          JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
+          JOIN cars ON agencies.agency_id = cars.agency_id)
           WHERE agencies.agency_id = $1
      `
      }
      else {
           query = `
-          SELECT vehicles.*
+          SELECT cars.*
           FROM (( users
           JOIN agencies ON users._id = agencies.owner_id)
-          JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
+          JOIN cars ON agencies.agency_id = cars.agency_id)
           WHERE users._id = $1
      `
      }
@@ -148,11 +148,11 @@ const showAgencyCars = async (req, res) => {
 const agencyActiveBookingCars = async (req, res) => {
      const id = req.params.id;
      let query = `
-          SELECT vehicles.brand, vehicles.model, booking_info.*
+          SELECT cars.brand, cars.model, booking_info.*
           FROM (((users
           JOIN agencies ON users._id = agencies.owner_id)
-          JOIN vehicles ON agencies.agency_id = vehicles.agency_id)
-          JOIN booking_info ON vehicles.vehicle_id = booking_info.vehicle_id)
+          JOIN cars ON agencies.agency_id = cars.agency_id)
+          JOIN booking_info ON cars.car_id = booking_info.vehicle_id)
           WHERE users._id = $1
      `
      try {

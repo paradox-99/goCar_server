@@ -3,7 +3,7 @@ const { createUserId, createAddressId } = require('./createIDs');
 
 const showAllUsers = async (req, res) => {
 
-     const query = "SELECT * FROM users JOIN address_info ON users.address_id = address_info.address_id";
+     const query = "SELECT * FROM users JOIN address ON users.address_id = address.address_id";
 
      try {
           const result = await pool.query(query);
@@ -37,9 +37,9 @@ const getUser = async (req, res) => {
      }
 
      const query = `
-          SELECT users.*, address_info.*
+          SELECT users.*, address.*
           FROM users
-          JOIN address_info ON users.address_id = address_info.address_id
+          JOIN address ON users.address_id = address.address_id
           WHERE users.email = $1
      `
 
@@ -57,7 +57,7 @@ const getBookings = async (req, res) => {
      const query = `
           SELECT *
           FROM booking_info
-          JOIN vehicles ON booking_info.vehicle_id = vehicles.vehicle_id
+          JOIN cars ON booking_info.vehicle_id = cars.car_id
           WHERE user_id = $1
      `
      try {
@@ -138,7 +138,7 @@ const createUser = async (req, res) => {
      const experience = null
 
      const addressQuery = `
-          INSERT INTO address_info (address_id, district, upazilla, keyArea, area)
+          INSERT INTO address (address_id, district, upazilla, keyArea, area)
           VALUES ($1, $2, $3, $4, $5)
      `;
 
