@@ -4,7 +4,7 @@ const Router = express.Router();
 
 Router.get('/carByBrand/:brand', showCarByBrand);
 Router.get('/carByType/:type', showCarByType);
-Router.get('/getSearchData', carsByQuery); 
+Router.get('/getSearchData', carsByQuery);
 Router.get('/getCarByLocation', carsByFilter);
 Router.get('/getCartCars', cartCars);
 Router.get('/showAllCars', showAllCars);
