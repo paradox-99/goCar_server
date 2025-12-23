@@ -15,14 +15,25 @@ const showAllUsers = async (req, res) => {
 
 const getUserRole = async (req, res) => {
      const email = req.params.email;
-
+     console.log(email);
      const query = `
-          SELECT _id, name, userRole
+          SELECT user_id, name, userrole, photo
           FROM users
           WHERE email = $1`
 
+     const query2 = `
+          SELECT driver_id, name, 'driver' AS userrole, photo
+          FROM driver_info
+          WHERE email = $1
+     `
+
      try {
           const result = await pool.query(query, [email]);
+          if (result.rowCount === 0) {
+               const result2 = await pool.query(query2, [email]);
+               return res.json(result2.rows);
+          }
+          
           res.json(result.rows);
      } catch (err) {
           res.status(500).send(err.message);
@@ -32,9 +43,9 @@ const getUserRole = async (req, res) => {
 const getUser = async (req, res) => {
      const email = req.params.email;
 
-     if (req.user.email !== email) {
-          return res.status(403).json({ error: 'Forbidden access' });
-     }
+     // if (req.user.email !== email) {
+     //      return res.status(403).json({ error: 'Forbidden access' });
+     // }
 
      const query = `
           SELECT users.*, address.*
