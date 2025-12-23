@@ -54,7 +54,7 @@ const carsByQuery = async (req, res) => {
             FROM agencies ag
             JOIN address a ON a.address_id = ag.address_id
             WHERE ag.verified IS TRUE
-              AND ST_DWithin(a.geom, (SELECT geom FROM user_point), 5000)
+              AND ST_DWithin(a.geom, (SELECT geom FROM user_point), 3000)
           ),
 
           cars_with_booking AS (
@@ -184,20 +184,21 @@ const carsByFilter = async (req, res) => {
      }
 }
 
-const cartCars = async (req, res) => {
-     const params = req.query;
-     const ids = Object.values(params)
+const carDetails = async (req, res) => {
+     const id = req.params.id;
 
      let query = `
-          SELECT *
+          SELECT cars.*, agencies.agency_id, agencies.agency_name, agencies.owner_id, agencies.email
           FROM cars
-          WHERE car_id IN ($1)
+          JOIN agencies ON cars.agency_id = agencies.agency_id
+          WHERE cars.car_id = $1
      `
 
      try {
-          const result = await pool.query(query, [ids]);
+          const result = await pool.query(query, [id]);
           res.json(result.rows[0]);
      } catch (error) {
+          console.log(error.message);
           res.status(500).send(error.message);
      }
 }
@@ -212,6 +213,26 @@ const showAllCars = async (req, res) => {
           const result = await pool.query(query);
           res.json(result.rows);
      } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
+const getCarReviews = async (req, res) => {
+     const id = req.params.id;
+     console.log(id);
+     
+     let query = `
+          SELECT cr.*, u.name, u.photo
+          FROM cars_reviews as cr
+          JOIN users as u ON cr.user_id = u.user_id
+          WHERE cr.car_id = $1
+     `
+     try {
+          const result = await pool.query(query, [id]);
+          res.json(result.rows);
+     } catch (error) {
+          console.log(error);
+          
           res.status(500).send(error.message);
      }
 }
@@ -264,4 +285,4 @@ const agencyActiveBookingCars = async (req, res) => {
      }
 }
 
-module.exports = { showCarByBrand, showCarByType, carsByQuery, carsByFilter, cartCars, showAllCars, showAgencyCars, agencyActiveBookingCars };
+module.exports = { showCarByBrand, showCarByType, carsByQuery, carsByFilter, carDetails, showAllCars, showAgencyCars, agencyActiveBookingCars, getCarReviews };
