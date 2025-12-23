@@ -19,10 +19,9 @@ const getAllAgency = async (req, res) => {
 const getAgencyDetails = async (req, res) => {
      const agencyId = req.params.id;
      const query = `
-          SELECT agencies.*, address.*, users.name, users.email
-          FROM ((agencies
-          JOIN address ON agencies.address_id = address.address_id)
-          JOIN users ON agencies.owner_id = users._id)
+          SELECT agencies.*, address.display_name
+          FROM agencies
+          JOIN address ON agencies.address_id = address.address_id
           WHERE agencies.agency_id = $1
      `
 
