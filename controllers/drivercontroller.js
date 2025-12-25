@@ -2,20 +2,43 @@ const pool = require('../config/db')
 const { createDriverId } = require('./createIDs')
 
 const showAllDrivers = async (req, res) => {
-     const district = req.params.district
+     const { lat, lon } = req.query
+
+     const userLat = Number(lat);
+     const userLon = Number(lon);
 
      try {
+          // Search driver_info within 5km range using latitude and longitude
           const query = `
-               SELECT drivers.*, address.*
-               FROM drivers
-               JOIN address
-               ON drivers.address_id = address.address_id
-               where address.district = $1
+               SELECT
+                d.driver_id,
+                d.name,
+                d.photo,
+                d.phone,
+                d.experience_year,
+                d.rental_price,
+                d.rating,
+                a.display_name,
+                ST_Distance(
+                  ST_MakePoint(a.longitude, a.latitude)::geography,
+                  ST_MakePoint($1, $2)::geography
+                ) AS distance_meters
+              FROM driver_info d
+              JOIN address a ON a.address_id = d.address_id
+              WHERE d.verified = TRUE
+              AND ST_DWithin(
+                ST_MakePoint(a.longitude, a.latitude)::geography,
+                ST_MakePoint($1, $2)::geography,
+                5000
+               )
+               ORDER BY distance_meters;
                `
           try {
-               const result = await pool.query(query, [district]);
+               const result = await pool.query(query, [userLon, userLat]);
                res.json(result.rows);
           } catch (err) {
+               console.log(err.message);
+
                res.status(500).send(err.message);
           }
      }
@@ -33,7 +56,7 @@ const checkNID = async (req, res) => {
           WHERE nid = $1
           UNION
           SELECT _id
-          FROM drivers
+          FROM driver_info
           WHERE nid = $2 
      `
      try {
@@ -58,7 +81,7 @@ const checkPhone = async (req, res) => {
           WHERE phone = $1
           UNION
           SELECT _id
-          FROM drivers
+          FROM driver_info
           WHERE phone = $2
      `
      try {
@@ -79,7 +102,7 @@ const checkLicense = async (req, res) => {
 
      const query = `
           SELECT _id
-          FROM drivers
+          FROM driver_info
           WHERE license_number = $1
      `
      try {
