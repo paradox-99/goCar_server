@@ -6,21 +6,60 @@ const createBooking = async (req, res) => {
 
      const booking_id = generateBookingId();
      const status = 'Requested';
+     const client = await pool.connect();      
 
      const query = `
           INSERT INTO booking_info (booking_id, vehicle_type, vehicle_id, start_ts, end_ts, booking_ts, total_rent_hours, driver_cost, total_cost, driver_id, status, user_id, booking_purpose, estimated_destination)
           VALUES ($1, $2, $3, $4, $5, now(), $6, $7, $8, $9, $10, $11, $12, $13)
      `;
 
+     const updateCarStatus = `
+          UPDATE cars
+          SET status = 'Unavailable'
+          WHERE car_id = $1
+     `;
+
+     const updateBikeStatus = `
+          UPDATE bikes
+          SET status = 'Unavailable'
+          WHERE bike_id = $1
+     `;
+
+     const updateDriverStatus = `
+          UPDATE driver_info
+          SET availability = false
+          WHERE driver_id = $1
+     `;
+
      try {
-          const result = await pool.query(query, [booking_id, vehicle_type, vehicle_id, start_ts, end_ts, total_rent_hours, driver_cost, total_cost, driver_id, user_id, booking_purpose, status, estimated_destination]);
+          await client.query('BEGIN');
+
+          const result = await client.query(query, [booking_id, vehicle_type, vehicle_id, start_ts, end_ts, total_rent_hours, driver_cost, total_cost, driver_id, user_id, booking_purpose, status, estimated_destination]);
           if (result.rowCount === 0) {
+               await client.query('ROLLBACK');
                return res.status(200).json({ message: 'Failed To Create Booking.', code: 0 });
           }
+
+          // Update vehicle availability based on type
+          if (vehicle_type === 'Car') {
+               await client.query(updateCarStatus, [vehicle_id]);
+          } else if (vehicle_type === 'Bike') {
+               await client.query(updateBikeStatus, [vehicle_id]);
+          }
+
+          // Update driver availability if driver_id is provided
+          if (driver_id) {
+               await client.query(updateDriverStatus, [driver_id]);
+          }
+
+          await client.query('COMMIT');
           res.status(200).json({ message: 'Booking Created Successfully.', code: 1 });
      } catch (error) {
+          await client.query('ROLLBACK');
           console.log(error.message);
           res.status(500).send(error.message);
+     } finally {
+          client.release();
      }
 }
 
