@@ -87,12 +87,15 @@ const getUserBookings = async (req, res) => {
 
 const cancelBooking = async (req, res) => {
      const id = req.params.id;
-     const { cancelBy, cancelReason } = req.body;
+     const { cancelledBy, cancelReason } = req.body;
+     console.log(id, cancelledBy, cancelReason);
      const client = await pool.connect();         
+
+     
 
      const updateCancelReason = `
           UPDATE booking_info
-          SET cancelled_by = $3, cancel_reason = $2, status = 'Cancelled'
+          SET cancelled_by = $2, cancel_reason = $3, status = 'Cancelled', cancelled_at = now()
           WHERE booking_id = $1
      `;
 
@@ -124,7 +127,7 @@ const cancelBooking = async (req, res) => {
      try {
           await client.query('BEGIN');
 
-          const result = await client.query(updateCancelReason, [id, cancelReason, cancelBy]);
+          const result = await client.query(updateCancelReason, [id, cancelledBy, cancelReason]);
           if (result.rowCount === 0) {
                await client.query('ROLLBACK');
                return res.status(200).json({ message: 'Failed To Cancel Booking.' });
@@ -148,8 +151,10 @@ const cancelBooking = async (req, res) => {
 
           await client.query('COMMIT');
 
-          res.json({ message: 'Booking Cancelled Successfully.' });
+          res.status(200).json({ message: 'Booking Cancelled Successfully.' });
      } catch (error) {
+          console.log(error.message);
+          
           await client.query('ROLLBACK');
           res.status(500).send(error.message);
      } finally {

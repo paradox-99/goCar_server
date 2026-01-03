@@ -15,6 +15,25 @@ const getAllAgency = async (req, res) => {
      }
 }
 
+const getAgencyProfile = async (req, res) => {
+     const userEmail = req.params.email;
+     const query = `
+          SELECT ag.agency_id, ag.agency_name, ag.phone_number, ag.email, ag.cars, ag.license, ag.tin, ag.insurancenumber, ag.tradelicenseexpire, ag.status, ag.expire_date, ag.bikes, ag.verified, u.name as owner_name, u.email as owner_email, u.phone as owner_phone, u.photo as owner_photo, u.user_id as owner_id, u.gender, u.dob, u.verified as owner_verified, u.accountStatus, ada.city as agency_city, ada.area as agency_area, ada.postcode as agency_postcode, ada.display_name as agency_full_address, adu.city as owner_city, adu.area as owner_area, adu.postcode as owner_postcode, adu.display_name as owner_full_address
+          FROM agencies as ag
+          JOIN users as u ON ag.owner_id = u.user_id
+          JOIN address as ada ON ag.address_id = ada.address_id
+          JOIN address as adu ON u.address_id = adu.address_id
+          WHERE u.email = $1
+     `
+
+     try {
+          const result = await pool.query(query, [userEmail]);
+          res.json(result.rows[0]);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
 // agency details by user query
 const getAgencyDetails = async (req, res) => {
      const agencyId = req.params.id;
@@ -83,5 +102,39 @@ const getAllBookings = async (req, res) => {
      }
 }
 
+const getAgencyCarsByOwner = async (req, res) => {
+     const id = req.params.id;
+     const query = `
+          SELECT cars.*
+          FROM (( users
+          JOIN agencies ON users._id = agencies.owner_id)
+          JOIN cars ON agencies.agency_id = cars.agency_id) 
+          WHERE users._id = $1
+     `
+     try {
+          const result = await pool.query(query, [id]);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
 
-module.exports = { getAllAgency, getAgencyDetails, getAgencyOwner, getAllBookings, getAgencyDetails2 }
+const getAgencyActiveBookingCars = async (req, res) => {
+     const id = req.params.id;
+     const query = `
+          SELECT cars.brand, cars.model, booking_info.*
+          FROM (((users
+          JOIN agencies ON users._id = agencies.owner_id)
+          JOIN cars ON agencies.agency_id = cars.agency_id)
+          JOIN booking_info ON cars.car_id = booking_info.vehicle_id)
+          WHERE users._id = $1
+     `
+     try {
+          const result = await pool.query(query, [id]);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
+module.exports = { getAllAgency, getAgencyDetails, getAgencyOwner, getAllBookings, getAgencyDetails2, getAgencyProfile, getAgencyCarsByOwner, getAgencyActiveBookingCars };
