@@ -1,4 +1,9 @@
 const pool = require('../config/db');
+const agencyService = require('../services/agencyService');
+const agencyValidator = require('../validators/agencyValidator');
+const asyncHandler = require('../utils/asyncHandler');
+const HTTP_STATUS = require('../constants/httpStatus');
+const MESSAGES = require('../constants/messages');
 
 const getAllAgency = async (req, res) => {
      const query = `
@@ -103,16 +108,16 @@ const getAllBookings = async (req, res) => {
 }
 
 const getAgencyCarsByOwner = async (req, res) => {
-     const id = req.params.id;
+     const email = req.params.email;
      const query = `
           SELECT cars.*
           FROM (( users
-          JOIN agencies ON users._id = agencies.owner_id)
+          JOIN agencies ON users.user_id = agencies.owner_id)
           JOIN cars ON agencies.agency_id = cars.agency_id) 
-          WHERE users._id = $1
+          WHERE users.email = $1
      `
      try {
-          const result = await pool.query(query, [id]);
+          const result = await pool.query(query, [email]);
           res.json(result.rows);
      } catch (error) {
           res.status(500).send(error.message);
@@ -137,4 +142,41 @@ const getAgencyActiveBookingCars = async (req, res) => {
      }
 }
 
-module.exports = { getAllAgency, getAgencyDetails, getAgencyOwner, getAllBookings, getAgencyDetails2, getAgencyProfile, getAgencyCarsByOwner, getAgencyActiveBookingCars };
+/**
+ * Update Agency Owner Information
+ * 
+ * @route PATCH /api/agency/updateOwnerInfo/:id
+ * @param {string} req.params.id - Owner's user ID
+ * @param {Object} req.body - { name, phone, dob, gender }
+ * @returns {Object} - Success response with updated owner data
+ * @throws {AppError} - 400 if validation fails, 404 if user not found
+ */
+const updateAgencyOwnerInfo = asyncHandler(async (req, res) => {
+     // Validate and sanitize the owner ID from params
+     const ownerId = agencyValidator.validateOwnerId(req.params.id);
+
+     // Validate and sanitize the request body
+     const validatedData = agencyValidator.validateUpdateOwnerInfo(req.body);
+
+     // Call the service to update owner info
+     const updatedOwner = await agencyService.updateAgencyOwnerInfo(ownerId, validatedData);
+
+     // Send success response
+     res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: MESSAGES.AGENCY_OWNER_UPDATED,
+          data: updatedOwner
+     });
+});
+
+module.exports = { 
+     getAllAgency, 
+     getAgencyDetails, 
+     getAgencyOwner, 
+     getAllBookings, 
+     getAgencyDetails2, 
+     getAgencyProfile, 
+     getAgencyCarsByOwner, 
+     getAgencyActiveBookingCars,
+     updateAgencyOwnerInfo 
+};

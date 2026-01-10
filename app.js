@@ -12,6 +12,9 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const authorizationRoutes = require('./routes/authorization');
 const bookingRoutes = require('./routes/bookingRoutes');
 
+// Error handling middleware
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+
 const app = express();
 
 app.use(cors({
@@ -42,5 +45,11 @@ app.use('/api/driverRoutes', driverRoutes);
 app.use('/api/paymentRoutes', paymentRoutes);
 app.use('/api/authorization', authorizationRoutes);
 app.use('/api/bookingRoutes', bookingRoutes);
+
+// Handle 404 - Route not found
+app.use(notFoundHandler);
+
+// Global error handler - must be last middleware
+app.use(errorHandler);
 
 module.exports = app;
