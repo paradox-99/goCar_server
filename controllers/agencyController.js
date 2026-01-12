@@ -58,19 +58,21 @@ const getAgencyDetails = async (req, res) => {
 }
 
 // agency details by owner query
-const getAgencyDetails2 = async (req, res) => {
+const getAgencyBookings = async (req, res) => {
      const ownerId = req.params.id
      const query = `
-          SELECT agencies.*, address.*
-          FROM ((agencies
-          JOIN address ON agencies.address_id = address.address_id)
-          JOIN users ON agencies.owner_id = users._id)
+          SELECT booking_info.*, cars.brand, cars.model, users.name, users.email, agencies.agency_name
+          FROM ((((booking_info
+          JOIN cars ON booking_info.vehicle_id = cars.car_id)
+          JOIN agencies ON cars.agency_id = agencies.agency_id)
+          JOIN users ON booking_info.user_id = users.user_id)
           WHERE agencies.owner_id = $1
+          ORDER BY booking_info.booking_date DESC
      `
 
      try {
           const result = await pool.query(query, [ownerId]);
-          res.json(result.rows[0]);
+          res.json(result.rows);
      } catch (error) {
           res.status(500).send(error.message);
      }
@@ -188,6 +190,7 @@ module.exports = {
      getAgencyProfile, 
      getAgencyCarsByOwner, 
      getAgencyActiveBookingCars,
+     getAgencyBookings,
      updateAgencyOwnerInfo,
      updateAgencyInfo
 };
