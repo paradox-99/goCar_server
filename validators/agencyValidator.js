@@ -10,46 +10,56 @@ const helpers = require('./helpers/validationHelpers');
  */
 const agencyValidator = {
      /**
-      * Validates the update agency owner info request body
+      * Validates the update agency owner info request body (Partial Update)
+      * Only validates and returns fields that are provided
       * @param {Object} data - Request body data
-      * @returns {Object} - Validated and sanitized data
-      * @throws {AppError} - If validation fails
+      * @returns {Object} - Validated and sanitized data (only provided fields)
+      * @throws {AppError} - If validation fails or no valid fields provided
       */
      validateUpdateOwnerInfo(data) {
           const { name, phone, dob, gender } = data;
           const errors = [];
+          const sanitizedData = {};
 
-          // Validate name
-          if (!name || typeof name !== 'string') {
-               errors.push({ field: 'name', message: 'Name is required' });
-          } else if (!helpers.isValidLength(name, 2, 30)) {
-               errors.push({ field: 'name', message: MESSAGES.INVALID_NAME });
-          }
-
-          // Validate phone
-          if (!phone || typeof phone !== 'string') {
-               errors.push({ field: 'phone', message: 'Phone number is required' });
-          } else if (!helpers.isValidPhone(phone)) {
-               errors.push({ field: 'phone', message: MESSAGES.INVALID_PHONE });
-          }
-
-          // Validate date of birth
-          if (!dob) {
-               errors.push({ field: 'dob', message: 'Date of birth is required' });
-          } else if (!helpers.isValidDate(dob)) {
-               errors.push({ field: 'dob', message: MESSAGES.INVALID_DOB });
-          } else {
-               const age = helpers.calculateAge(dob);
-               if (age < 18 || age > 120) {
-                    errors.push({ field: 'dob', message: 'Age must be between 18 and 120 years' });
+          // Validate name (optional)
+          if (name !== undefined) {
+               if (typeof name !== 'string' || !helpers.isValidLength(name, 2, 30)) {
+                    errors.push({ field: 'name', message: MESSAGES.INVALID_NAME });
+               } else {
+                    sanitizedData.name = helpers.sanitizeString(name);
                }
           }
 
-          // Validate gender
-          if (!gender) {
-               errors.push({ field: 'gender', message: 'Gender is required' });
-          } else if (!helpers.isValidGender(gender)) {
-               errors.push({ field: 'gender', message: MESSAGES.INVALID_GENDER });
+          // Validate phone (optional)
+          if (phone !== undefined) {
+               if (typeof phone !== 'string' || !helpers.isValidPhone(phone)) {
+                    errors.push({ field: 'phone', message: MESSAGES.INVALID_PHONE });
+               } else {
+                    sanitizedData.phone = helpers.sanitizePhone(phone);
+               }
+          }
+
+          // Validate date of birth (optional)
+          if (dob !== undefined) {
+               if (!helpers.isValidDate(dob)) {
+                    errors.push({ field: 'dob', message: MESSAGES.INVALID_DOB });
+               } else {
+                    const age = helpers.calculateAge(dob);
+                    if (age < 18 || age > 120) {
+                         errors.push({ field: 'dob', message: 'Age must be between 18 and 120 years' });
+                    } else {
+                         sanitizedData.dob = helpers.formatDate(dob);
+                    }
+               }
+          }
+
+          // Validate gender (optional)
+          if (gender !== undefined) {
+               if (!helpers.isValidGender(gender)) {
+                    errors.push({ field: 'gender', message: MESSAGES.INVALID_GENDER });
+               } else {
+                    sanitizedData.gender = gender.toLowerCase();
+               }
           }
 
           if (errors.length > 0) {
@@ -58,13 +68,12 @@ const agencyValidator = {
                throw error;
           }
 
-          // Return sanitized data
-          return {
-               name: helpers.sanitizeString(name),
-               phone: helpers.sanitizePhone(phone),
-               dob: helpers.formatDate(dob),
-               gender: gender.toLowerCase()
-          };
+          // Ensure at least one field is provided for update
+          if (Object.keys(sanitizedData).length === 0) {
+               throw new AppError('At least one field (name, phone, dob, or gender) is required for update', HTTP_STATUS.BAD_REQUEST);
+          }
+
+          return sanitizedData;
      },
 
      /**
@@ -177,13 +186,18 @@ const agencyValidator = {
      },
 
      /**
-      * Validates update agency request
+      * Validates update agency request (Partial Update)
+      * Only validates and returns fields that are provided
       * @param {Object} data - Request body data
       * @returns {Object} - Validated and sanitized data
-      * @throws {AppError} - If validation fails
+      * @throws {AppError} - If validation fails or no valid fields provided
       */
      validateUpdateAgency(data) {
-          const { agency_name, phone_number, email, status } = data;
+          const { 
+               agency_name, phone_number, email, status, 
+               license, tin, insurancenumber, tradelicenseexpire,
+               verified
+          } = data;
           const errors = [];
           const sanitizedData = {};
 
@@ -223,13 +237,76 @@ const agencyValidator = {
                }
           }
 
+          // Validate license (optional)
+          if (license !== undefined) {
+               if (typeof license !== 'string' || !helpers.isValidLength(license, 5, 30)) {
+                    errors.push({ field: 'license', message: 'License must be between 5 and 30 characters' });
+               } else {
+                    sanitizedData.license = license.trim();
+               }
+          }
+
+          // Validate TIN (optional)
+          if (tin !== undefined) {
+               if (!helpers.isValidTIN(tin)) {
+                    errors.push({ field: 'tin', message: MESSAGES.INVALID_TIN });
+               } else {
+                    sanitizedData.tin = tin.trim();
+               }
+          }
+
+          // Validate insurance number (optional)
+          if (insurancenumber !== undefined) {
+               if (insurancenumber && !helpers.isValidLength(insurancenumber, 5, 20)) {
+                    errors.push({ field: 'insurancenumber', message: MESSAGES.INVALID_INSURANCE });
+               } else {
+                    sanitizedData.insurancenumber = insurancenumber ? insurancenumber.trim() : null;
+               }
+          }
+
+          // Validate trade license expiry (optional)
+          if (tradelicenseexpire !== undefined) {
+               if (!helpers.isValidDate(tradelicenseexpire)) {
+                    errors.push({ field: 'tradelicenseexpire', message: MESSAGES.INVALID_DATE });
+               } else {
+                    sanitizedData.tradelicenseexpire = helpers.formatDate(tradelicenseexpire);
+               }
+          }
+
+          // Validate verified (optional)
+          if (verified !== undefined) {
+               if (typeof verified !== 'boolean') {
+                    errors.push({ field: 'verified', message: 'Verified must be a boolean value' });
+               } else {
+                    sanitizedData.verified = verified;
+               }
+          }
+
           if (errors.length > 0) {
                const error = new AppError(MESSAGES.VALIDATION_ERROR, HTTP_STATUS.BAD_REQUEST);
                error.errors = errors;
                throw error;
           }
 
+          // Ensure at least one field is provided for update
+          if (Object.keys(sanitizedData).length === 0) {
+               throw new AppError('At least one field is required for update', HTTP_STATUS.BAD_REQUEST);
+          }
+
           return sanitizedData;
+     },
+
+     /**
+      * Validates agency ID parameter
+      * @param {string} id - Agency ID to validate
+      * @returns {string} - Validated ID
+      * @throws {AppError} - If validation fails
+      */
+     validateAgencyId(id) {
+          if (!id || typeof id !== 'string' || id.trim() === '') {
+               throw new AppError(MESSAGES.INVALID_ID, HTTP_STATUS.BAD_REQUEST);
+          }
+          return id.trim();
      },
 
      /**

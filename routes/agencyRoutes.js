@@ -8,7 +8,8 @@ const {
      getAgencyDetails2, 
      getAgencyProfile, 
      getAgencyCarsByOwner,
-     updateAgencyOwnerInfo 
+     updateAgencyOwnerInfo,
+     updateAgencyInfo
 } = require('../controllers/agencyController');
 // const { verifyToken, verifyAdmin, verifyAgency } = require('../config/jwt');
 
@@ -27,5 +28,8 @@ Router.get('/getAgencyCarsByOwner/:email', getAgencyCarsByOwner);
 
 // Update agency owner information
 Router.patch('/updateOwnerInfo/:id', updateAgencyOwnerInfo);
+
+// Update agency information
+Router.patch('/updateAgencyInfo/:id', updateAgencyInfo);
 
 module.exports = Router

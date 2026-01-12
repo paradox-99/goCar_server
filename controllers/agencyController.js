@@ -23,7 +23,7 @@ const getAllAgency = async (req, res) => {
 const getAgencyProfile = async (req, res) => {
      const userEmail = req.params.email;
      const query = `
-          SELECT ag.agency_id, ag.agency_name, ag.phone_number, ag.email, ag.cars, ag.license, ag.tin, ag.insurancenumber, ag.tradelicenseexpire, ag.status, ag.expire_date, ag.bikes, ag.verified, u.name as owner_name, u.email as owner_email, u.phone as owner_phone, u.photo as owner_photo, u.user_id as owner_id, u.gender, u.dob, u.verified as owner_verified, u.accountStatus, ada.city as agency_city, ada.area as agency_area, ada.postcode as agency_postcode, ada.display_name as agency_full_address, adu.city as owner_city, adu.area as owner_area, adu.postcode as owner_postcode, adu.display_name as owner_full_address
+          SELECT ag.agency_id, ag.agency_name, ag.phone_number, ag.email, ag.cars, ag.license, ag.tin, ag.insurancenumber, ag.tradelicenseexpire, ag.status, ag.expire_date, ag.bikes, ag.verified, u.name as owner_name, u.email as owner_email, u.phone as owner_phone, u.photo as owner_photo, u.user_id as owner_id, u.gender, u.dob, u.verified as owner_verified, u.accountStatus, ada.address_id as agency_add_id, ada.city as agency_city, ada.area as agency_area, ada.postcode as agency_postcode, ada.display_name as agency_full_address, adu.address_id as owner_add_id, adu.city as owner_city, adu.area as owner_area, adu.postcode as owner_postcode, adu.display_name as owner_full_address
           FROM agencies as ag
           JOIN users as u ON ag.owner_id = u.user_id
           JOIN address as ada ON ag.address_id = ada.address_id
@@ -142,23 +142,14 @@ const getAgencyActiveBookingCars = async (req, res) => {
      }
 }
 
-/**
- * Update Agency Owner Information
- * 
- * @route PATCH /api/agency/updateOwnerInfo/:id
- * @param {string} req.params.id - Owner's user ID
- * @param {Object} req.body - { name, phone, dob, gender }
- * @returns {Object} - Success response with updated owner data
- * @throws {AppError} - 400 if validation fails, 404 if user not found
- */
 const updateAgencyOwnerInfo = asyncHandler(async (req, res) => {
      // Validate and sanitize the owner ID from params
      const ownerId = agencyValidator.validateOwnerId(req.params.id);
 
-     // Validate and sanitize the request body
+     // Validate and sanitize only provided fields in the request body
      const validatedData = agencyValidator.validateUpdateOwnerInfo(req.body);
 
-     // Call the service to update owner info
+     // Call the service to update owner info (partial update)
      const updatedOwner = await agencyService.updateAgencyOwnerInfo(ownerId, validatedData);
 
      // Send success response
@@ -166,6 +157,25 @@ const updateAgencyOwnerInfo = asyncHandler(async (req, res) => {
           success: true,
           message: MESSAGES.AGENCY_OWNER_UPDATED,
           data: updatedOwner
+     });
+});
+
+
+const updateAgencyInfo = asyncHandler(async (req, res) => {
+     // Validate and sanitize the agency ID from params
+     const agencyId = agencyValidator.validateAgencyId(req.params.id);
+
+     // Validate and sanitize only provided fields in the request body
+     const validatedData = agencyValidator.validateUpdateAgency(req.body);
+
+     // Call the service to update agency info (partial update)
+     const updatedAgency = await agencyService.updateAgencyInfo(agencyId, validatedData);
+
+     // Send success response
+     res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: MESSAGES.AGENCY_UPDATED,
+          data: updatedAgency
      });
 });
 
@@ -178,5 +188,6 @@ module.exports = {
      getAgencyProfile, 
      getAgencyCarsByOwner, 
      getAgencyActiveBookingCars,
-     updateAgencyOwnerInfo 
+     updateAgencyOwnerInfo,
+     updateAgencyInfo
 };

@@ -15,7 +15,6 @@ const showAllUsers = async (req, res) => {
 
 const getUserRole = async (req, res) => {
      const email = req.params.email;
-     console.log(email);
      const query = `
           SELECT user_id, name, userrole, photo
           FROM users
@@ -81,8 +80,6 @@ const getBookings = async (req, res) => {
 
 const checkNID = async (req, res) => {
      const nid = req.params.nid;
-
-     console.log("hit");
      
      const query = `
           SELECT _id

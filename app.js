@@ -11,6 +11,7 @@ const driverRoutes = require('./routes/driverRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const authorizationRoutes = require('./routes/authorization');
 const bookingRoutes = require('./routes/bookingRoutes');
+const addressRoutes = require('./routes/addressRoutes');
 
 // Error handling middleware
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -45,6 +46,7 @@ app.use('/api/driverRoutes', driverRoutes);
 app.use('/api/paymentRoutes', paymentRoutes);
 app.use('/api/authorization', authorizationRoutes);
 app.use('/api/bookingRoutes', bookingRoutes);
+app.use('/api/addressRoutes', addressRoutes);
 
 // Handle 404 - Route not found
 app.use(notFoundHandler);
