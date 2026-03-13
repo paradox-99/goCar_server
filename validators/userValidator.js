@@ -414,6 +414,156 @@ const userValidator = {
           if (place_id) sanitizedData.place_id = place_id.trim();
 
           return sanitizedData;
+     },
+
+     /**
+      * Validates update user info request (name, photo, gender, phone, license, experience)
+      * Dynamically validates only provided fields
+      * @param {Object} data - Request body data
+      * @returns {Object} - Validated and sanitized data
+      * @throws {AppError} - If validation fails
+      */
+     validateUpdateUserInfo(data) {
+          const { name, photo, gender, phone, license_number, expire_date, experience } = data;
+          const errors = [];
+          const sanitizedData = {};
+
+          // Validate name (optional)
+          if (name !== undefined) {
+               if (typeof name !== 'string' || !helpers.isValidLength(name, 2, 30)) {
+                    errors.push({ field: 'name', message: MESSAGES.INVALID_NAME });
+               } else {
+                    sanitizedData.name = helpers.sanitizeString(name);
+               }
+          }
+
+          // Validate photo (optional)
+          if (photo !== undefined) {
+               if (photo && !helpers.isValidURL(photo) && !photo.startsWith('/')) {
+                    errors.push({ field: 'photo', message: 'Invalid photo URL format' });
+               } else {
+                    sanitizedData.photo = photo ? photo.trim() : null;
+               }
+          }
+
+          // Validate gender (optional)
+          if (gender !== undefined) {
+               if (!helpers.isValidGender(gender)) {
+                    errors.push({ field: 'gender', message: MESSAGES.INVALID_GENDER });
+               } else {
+                    sanitizedData.gender = gender.toLowerCase();
+               }
+          }
+
+          // Validate phone (optional)
+          if (phone !== undefined) {
+               if (!helpers.isValidPhone(phone)) {
+                    errors.push({ field: 'phone', message: MESSAGES.INVALID_PHONE });
+               } else {
+                    sanitizedData.phone = helpers.sanitizePhone(phone);
+               }
+          }
+
+          // Validate license number (optional)
+          if (license_number !== undefined) {
+               if (license_number && !helpers.isValidLength(license_number, 5, 20)) {
+                    errors.push({ field: 'license_number', message: MESSAGES.INVALID_LICENSE });
+               } else {
+                    sanitizedData.license_number = license_number ? license_number.trim().toUpperCase() : null;
+               }
+          }
+
+          // Validate expire date (optional)
+          if (expire_date !== undefined) {
+               if (expire_date && !helpers.isValidDate(expire_date)) {
+                    errors.push({ field: 'expire_date', message: MESSAGES.INVALID_DATE });
+               } else {
+                    sanitizedData.expire_date = expire_date ? helpers.formatDate(expire_date) : null;
+               }
+          }
+
+          // Validate experience (optional)
+          if (experience !== undefined) {
+               const exp = parseInt(experience);
+               if (isNaN(exp) || exp < 0 || exp > 50) {
+                    errors.push({ field: 'experience', message: 'Experience must be between 0 and 50 years' });
+               } else {
+                    sanitizedData.experience = exp;
+               }
+          }
+
+          if (errors.length > 0) {
+               const error = new AppError(MESSAGES.VALIDATION_ERROR, HTTP_STATUS.BAD_REQUEST);
+               error.errors = errors;
+               throw error;
+          }
+
+          if (Object.keys(sanitizedData).length === 0) {
+               throw new AppError('At least one field (name, photo, gender, phone, license_number, expire_date, or experience) is required for update', HTTP_STATUS.BAD_REQUEST);
+          }
+
+          return sanitizedData;
+     },
+
+     /**
+      * Validates update user address request (city, area, postcode, display_name)
+      * Dynamically validates only provided fields
+      * @param {Object} data - Request body data
+      * @returns {Object} - Validated and sanitized data
+      * @throws {AppError} - If validation fails
+      */
+     validateUpdateUserAddress(data) {
+          const { city, area, postcode, display_name } = data;
+          const errors = [];
+          const sanitizedData = {};
+
+          // Validate city (optional)
+          if (city !== undefined) {
+               if (city && !helpers.isValidLength(city, 2, 30)) {
+                    errors.push({ field: 'city', message: 'City must be between 2 and 30 characters' });
+               } else {
+                    sanitizedData.city = city ? helpers.sanitizeString(city) : null;
+               }
+          }
+
+          // Validate area (optional)
+          if (area !== undefined) {
+               if (area && !helpers.isValidLength(area, 2, 150)) {
+                    errors.push({ field: 'area', message: 'Area must be between 2 and 150 characters' });
+               } else {
+                    sanitizedData.area = area ? helpers.sanitizeString(area) : null;
+               }
+          }
+
+          // Validate postcode (optional)
+          if (postcode !== undefined) {
+               if (postcode && !helpers.isValidLength(postcode, 4, 20)) {
+                    errors.push({ field: 'postcode', message: MESSAGES.INVALID_POSTCODE });
+               } else {
+                    sanitizedData.postcode = postcode ? postcode.trim() : null;
+               }
+          }
+
+          // Validate display_name (optional)
+          if (display_name !== undefined) {
+               if (display_name && !helpers.isValidLength(display_name, 2, 250)) {
+                    errors.push({ field: 'display_name', message: 'Display name must be between 2 and 250 characters' });
+               } else {
+                    sanitizedData.display_name = display_name ? helpers.sanitizeString(display_name) : null;
+               }
+          }
+
+          if (errors.length > 0) {
+               const error = new AppError(MESSAGES.VALIDATION_ERROR, HTTP_STATUS.BAD_REQUEST);
+               error.errors = errors;
+               throw error;
+          }
+
+          if (Object.keys(sanitizedData).length === 0) {
+               throw new AppError('At least one field (city, area, postcode, or display_name) is required for update', HTTP_STATUS.BAD_REQUEST);
+          }
+
+          return sanitizedData;
      }
 };
 

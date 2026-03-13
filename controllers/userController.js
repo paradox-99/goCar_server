@@ -1,5 +1,10 @@
 const pool = require('../config/db');
 const { createUserId, createAddressId } = require('./createIDs');
+const userService = require('../services/userService');
+const userValidator = require('../validators/userValidator');
+const asyncHandler = require('../utils/asyncHandler');
+const HTTP_STATUS = require('../constants/httpStatus');
+const MESSAGES = require('../constants/messages');
 
 const showAllUsers = async (req, res) => {
 
@@ -179,4 +184,30 @@ const createUser = async (req, res) => {
      }
 }
 
-module.exports = { showAllUsers, getUserRole, getUser, getBookings, createUser, checkNID, checkPhone };
+const updateUserInfo = asyncHandler(async (req, res) => {
+     const userId = userValidator.validateUserId(req.params.userId);
+     const validatedData = userValidator.validateUpdateUserInfo(req.body);
+     
+     const updatedUser = await userService.updateUserInfo(userId, validatedData);
+     
+     res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: 'User information updated successfully',
+          data: updatedUser
+     });
+});
+
+const updateUserAddress = asyncHandler(async (req, res) => {
+     const userId = userValidator.validateUserId(req.params.userId);
+     const validatedData = userValidator.validateUpdateUserAddress(req.body);
+     
+     const updatedAddress = await userService.updateUserAddress(userId, validatedData);
+     
+     res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: 'User address updated successfully',
+          data: updatedAddress
+     });
+});
+
+module.exports = { showAllUsers, getUserRole, getUser, getBookings, createUser, checkNID, checkPhone, updateUserInfo, updateUserAddress };
