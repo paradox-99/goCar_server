@@ -1,4 +1,9 @@
 const pool = require('../config/db')
+const HTTP_STATUS = require('../constants/httpStatus');
+const MESSAGES = require('../constants/messages');
+const carService = require('../services/carService');
+const carValidator = require('../validators/carValidator');
+const asyncHandler = require('../utils/asyncHandler');
 
 const showCarByBrand = async (req, res) => {
      const brand = req.params.brand
@@ -253,14 +258,16 @@ const showAgencyCars = async (req, res) => {
           query = `
           SELECT cars.*
           FROM (( users
-          JOIN agencies ON users._id = agencies.owner_id)
+          JOIN agencies ON users.user_id = agencies.owner_id)
           JOIN cars ON agencies.agency_id = cars.agency_id)
-          WHERE users._id = $1
+          WHERE users.user_id = $1
      `
      }
 
      try {
           const result = await pool.query(query, [id]);
+          console.log(result.rows);
+          
           res.json(result.rows);
      } catch (error) {
           res.status(500).send(error.message);
@@ -272,10 +279,10 @@ const agencyActiveBookingCars = async (req, res) => {
      let query = `
           SELECT cars.brand, cars.model, booking_info.*
           FROM (((users
-          JOIN agencies ON users._id = agencies.owner_id)
+          JOIN agencies ON users.user_id = agencies.owner_id)
           JOIN cars ON agencies.agency_id = cars.agency_id)
           JOIN booking_info ON cars.car_id = booking_info.vehicle_id)
-          WHERE users._id = $1
+          WHERE users.user_id = $1
      `
      try {
           const result = await pool.query(query, [id]);
@@ -285,4 +292,17 @@ const agencyActiveBookingCars = async (req, res) => {
      }
 }
 
-module.exports = { showCarByBrand, showCarByType, carsByQuery, carsByFilter, carDetails, showAllCars, showAgencyCars, agencyActiveBookingCars, getCarReviews };
+const updateCarInfo = asyncHandler(async (req, res) => {
+     const carId = carValidator.validateCarId(req.params.id);
+     const validatedData = carValidator.validateUpdateCarInfo(req.body);
+
+     const updatedCar = await carService.updateCarInfo(carId, validatedData);
+
+     res.status(HTTP_STATUS.OK).json({
+          success: true,
+          message: MESSAGES.CAR_UPDATED,
+          data: updatedCar
+     });
+});
+
+module.exports = { showCarByBrand, showCarByType, carsByQuery, carsByFilter, carDetails, showAllCars, showAgencyCars, agencyActiveBookingCars, getCarReviews, updateCarInfo };
