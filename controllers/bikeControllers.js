@@ -1,4 +1,9 @@
 const pool = require('../config/db')
+const asyncHandler = require('../utils/asyncHandler');
+const HTTP_STATUS = require('../constants/httpStatus');
+const MESSAGES = require('../constants/messages');
+const bikeValidator = require('../validators/bikeValidator');
+const bikeService = require('../services/bikeService');
 
 const showBikeByBrand = async (req, res) => {
      const brand = req.params.brand
@@ -67,4 +72,16 @@ const showAllBikes = async (req, res) => {
      }
 }
 
-module.exports = { showBikeByBrand, bikeDetails, showAllBikes, getBikeReviews }
+const addBike = asyncHandler(async (req, res) => {
+     const validatedData = bikeValidator.validateCreateBike(req.body);
+
+     const createdBike = await bikeService.createBike(validatedData);
+
+     res.status(HTTP_STATUS.CREATED).json({
+          success: true,
+          message: MESSAGES.BIKE_CREATED,
+          data: createdBike
+     });
+});
+
+module.exports = { showBikeByBrand, bikeDetails, showAllBikes, getBikeReviews, addBike }
