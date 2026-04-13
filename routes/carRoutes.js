@@ -1,5 +1,5 @@
 const express = require('express');
-const { showCarByBrand, showCarByType, carsByQuery, carsByFilter, carDetails, showAllCars, showAgencyCars, agencyActiveBookingCars, getCarReviews, updateCarInfo } = require('../controllers/carControllers');
+const { showCarByBrand, showCarByType, carsByQuery, carsByFilter, carDetails, showAllCars, showAgencyCars, agencyActiveBookingCars, getCarReviews, createCar, updateCarInfo } = require('../controllers/carControllers');
 const Router = express.Router();
 
 Router.get('/carByBrand/:brand', showCarByBrand);
@@ -11,6 +11,7 @@ Router.get('/getCarReviews/:id', getCarReviews);
 Router.get('/showAllCars', showAllCars);
 Router.get('/showAgencyCars/:id', showAgencyCars);
 Router.get('/agencyActiveBookingCars/:id', agencyActiveBookingCars);
+Router.post('/addCar', createCar);
 Router.patch('/updateCarInfo/:id', updateCarInfo);
 
 module.exports = Router;

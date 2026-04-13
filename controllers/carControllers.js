@@ -266,7 +266,6 @@ const showAgencyCars = async (req, res) => {
 
      try {
           const result = await pool.query(query, [id]);
-          console.log(result.rows);
           
           res.json(result.rows);
      } catch (error) {
@@ -292,6 +291,18 @@ const agencyActiveBookingCars = async (req, res) => {
      }
 }
 
+const createCar = asyncHandler(async (req, res) => {
+     const validatedData = carValidator.validateCreateCar(req.body);
+
+     const createdCar = await carService.createCar(validatedData);
+
+     res.status(HTTP_STATUS.CREATED).json({
+          success: true,
+          message: MESSAGES.CAR_CREATED,
+          data: createdCar
+     });
+});
+
 const updateCarInfo = asyncHandler(async (req, res) => {
      const carId = carValidator.validateCarId(req.params.id);
      const validatedData = carValidator.validateUpdateCarInfo(req.body);
@@ -305,4 +316,4 @@ const updateCarInfo = asyncHandler(async (req, res) => {
      });
 });
 
-module.exports = { showCarByBrand, showCarByType, carsByQuery, carsByFilter, carDetails, showAllCars, showAgencyCars, agencyActiveBookingCars, getCarReviews, updateCarInfo };
+module.exports = { showCarByBrand, showCarByType, carsByQuery, carsByFilter, carDetails, showAllCars, showAgencyCars, agencyActiveBookingCars, getCarReviews, createCar, updateCarInfo };
