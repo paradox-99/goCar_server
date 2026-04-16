@@ -23,6 +23,7 @@ const errorHandler = (err, req, res, next) => {
 
      // PostgreSQL specific error handling
      if (err.code) {
+          console.error('[PG Error]', { code: err.code, message: err.message, detail: err.detail, column: err.column, dataType: err.dataType });
           switch (err.code) {
                case '23505': // Unique violation
                     statusCode = HTTP_STATUS.CONFLICT;

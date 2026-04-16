@@ -69,8 +69,8 @@ const bikeValidator = {
                }
           }
 
-          if (images !== undefined && !helpers.isValidImageArray(images)) {
-               errors.push({ field: 'images', message: MESSAGES.INVALID_IMAGES });
+          if (images !== undefined && typeof images !== 'string') {
+               errors.push({ field: 'images', message: 'Images must be a valid string URL' });
           }
 
           if (fuel !== undefined && !helpers.isValidEnum(String(fuel).toLowerCase(), ENUMS.FUEL_TYPE)) {
@@ -241,7 +241,7 @@ const bikeValidator = {
                model: helpers.sanitizeString(model),
                car_type: car_type.toLowerCase().trim(),
                build_year: build_year !== undefined ? parseInt(build_year, 10) : null,
-               images: images !== undefined ? images : [],
+               images: images ? `{${images}}` : '{}',
                fuel: fuel !== undefined ? String(fuel).toLowerCase().trim() : null,
                fuel_capacity: fuel_capacity !== undefined ? parseInt(fuel_capacity, 10) : null,
                mileage: mileage !== undefined ? parseFloat(mileage) : null,
@@ -252,7 +252,7 @@ const bikeValidator = {
                helmet_count: helmet_count !== undefined ? parseInt(helmet_count, 10) : null,
                abs: abs !== undefined ? abs : null,
                disk_brake: disk_brake !== undefined ? disk_brake : null,
-               status: status !== undefined ? String(status).toLowerCase().trim() : 'available',
+               status: status !== undefined ? String(status).trim().charAt(0).toUpperCase() + String(status).trim().slice(1).toLowerCase() : 'Available',
                engine_start_type: engine_start_type !== undefined ? String(engine_start_type).toLowerCase().trim() : null,
                verified: verified !== undefined ? verified : false,
                next_available_at: next_available_at !== undefined && next_available_at !== null ? helpers.formatDateTime(next_available_at) : null,

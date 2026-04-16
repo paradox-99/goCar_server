@@ -53,6 +53,9 @@ const carValidator = {
                documentation
           } = data;
 
+          console.log(data);
+          
+
           const errors = [];
 
           if (!agency_id || typeof agency_id !== 'string') {
@@ -84,8 +87,8 @@ const carValidator = {
                }
           }
 
-          if (images !== undefined && !helpers.isValidImageArray(images)) {
-               errors.push({ field: 'images', message: MESSAGES.INVALID_IMAGES });
+          if (images !== undefined && typeof images !== 'string') {
+               errors.push({ field: 'images', message: 'Images must be a valid string URL' });
           }
 
           if (seats !== undefined) {
@@ -95,7 +98,7 @@ const carValidator = {
                }
           }
 
-          if (fuel !== undefined && !helpers.isValidEnum(String(fuel).toLowerCase(), require('../constants/enums').FUEL_TYPE)) {
+          if (fuel !== undefined && !helpers.isValidEnum(String(fuel), require('../constants/enums').FUEL_TYPE)) {
                errors.push({ field: 'fuel', message: `Fuel type must be one of: ${require('../constants/enums').FUEL_TYPE.join(', ')}` });
           }
 
@@ -122,7 +125,7 @@ const carValidator = {
                }
           }
 
-          if (transmission_type !== undefined && !helpers.isValidEnum(String(transmission_type).toLowerCase(), require('../constants/enums').TRANSMISSION_TYPE)) {
+          if (transmission_type !== undefined && !helpers.isValidEnum(String(transmission_type), require('../constants/enums').TRANSMISSION_TYPE)) {
                errors.push({ field: 'transmission_type', message: `Transmission type must be one of: ${require('../constants/enums').TRANSMISSION_TYPE.join(', ')}` });
           }
 
@@ -238,7 +241,7 @@ const carValidator = {
                model: helpers.sanitizeString(model),
                car_type: car_type.toLowerCase().trim(),
                build_year: build_year !== undefined ? parseInt(build_year, 10) : null,
-               images: images !== undefined ? images : [],
+               images: images ? `{${images}}` : '{}',
                seats: seats !== undefined ? parseInt(seats, 10) : null,
                fuel: fuel !== undefined ? String(fuel).toLowerCase().trim() : null,
                mileage: mileage !== undefined ? parseFloat(mileage) : null,
@@ -250,7 +253,7 @@ const carValidator = {
                gps: gps !== undefined ? gps : null,
                bluetooth: bluetooth !== undefined ? bluetooth : null,
                central_locking: central_locking !== undefined ? central_locking : null,
-               status: status !== undefined ? String(status).toLowerCase().trim() : 'available',
+               status: status !== undefined ? String(status).trim().charAt(0).toUpperCase() + String(status).trim().slice(1).toLowerCase() : 'Unavailable',
                verified: verified !== undefined ? verified : false,
                next_available_at: next_available_at !== undefined && next_available_at !== null ? helpers.formatDateTime(next_available_at) : null,
                documentation: {
@@ -283,7 +286,7 @@ const carValidator = {
                if (typeof status !== 'string' || !helpers.isValidLength(status, 2, 30)) {
                     errors.push({ field: 'status', message: MESSAGES.INVALID_STATUS });
                } else {
-                    sanitizedData.status = helpers.sanitizeString(status);
+                    sanitizedData.status = String(status).trim().charAt(0).toUpperCase() + String(status).trim().slice(1).toLowerCase();
                }
           }
 
