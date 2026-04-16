@@ -7,7 +7,11 @@ dotenv.config();
 const jwtSecret = process.env.ACCESS_TOKEN_SECRET;
 
 const generateToken = (user, res) => {
-    const accessToken = jwt.sign({ id: user._id, email: user.email, role: user.userRole }, jwtSecret, { expiresIn: '15d' });
+    const accessToken = jwt.sign(
+        { id: user.id, email: user.email, role: user.userrole },
+        jwtSecret,
+        { expiresIn: '15d' }
+    );
 
     return accessToken;
 };
@@ -15,7 +19,6 @@ const generateToken = (user, res) => {
 
 const verifyToken = async (req, res, next) => {
     const token = req.cookies?.accessToken;
-    console.log("token from verify: ", token);
 
     if (!token)
         return res.status(401).send({ message: "Unauthorized" })
@@ -28,86 +31,51 @@ const verifyToken = async (req, res, next) => {
     })
 }
 
-const verifyUser = async (req, res, next) => {
-    const email = req.user.email;
-    const query = `SELECT userRole FROM users WHERE email = ?`;
+const verifyRole = (allowedRoles) => {
+    return async (req, res, next) => {
+        try {
+            const email = req.user?.email;
+            const roleFromToken = req.user?.role;
 
-    connectDB.query(query, [email], (err, results) => {
-        if (err) {
-            console.log('fetching error: ', err);
-            return res.status(500).json({ error: 'Failed to retrieve users' });
-        }
+            if (!email) {
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
 
-        if (results.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
+            let role = roleFromToken;
+            if (!role) {
+                const userResult = await connectDB.query(
+                    'SELECT userrole FROM users WHERE email = $1',
+                    [email]
+                );
 
-        const isUser = results[0].userRole === 'user';
-        if (!isUser) {
-            return res.status(403).send({ message: 'Forbidden access' });
-        }
-        next();
-    })
-}
+                if (userResult.rowCount > 0) {
+                    role = userResult.rows[0].userrole;
+                } else {
+                    const driverResult = await connectDB.query(
+                        "SELECT 'driver' AS userrole FROM driver_info WHERE email = $1",
+                        [email]
+                    );
+                    if (driverResult.rowCount > 0) {
+                        role = 'driver';
+                    }
+                }
+            }
 
-const verifyAgency = async (req, res, next) => {
-    const email = req.user.email;
-    const query = `SELECT userRole FROM users WHERE email = ?`;
+            if (!role || !allowedRoles.includes(role)) {
+                return res.status(403).json({ message: 'Forbidden access' });
+            }
 
-    connectDB.query(query, [email], (err, results) => {
-        if (err) {
-            console.log('fetching error: ', err);
-            return res.status(500).json({ error: 'Failed to retrieve users' });
+            req.user.role = role;
+            next();
+        } catch (error) {
+            return res.status(500).json({ message: error.message });
         }
-        if (results.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        const isUser = results[0].userRole === 'agency';
-        if (!isUser) {
-            return res.status(403).send({ message: 'Forbidden access' });
-        }
-        next();
-    })
-}
+    };
+};
 
-const verifyDriver = async (req, res, next) => {
-    const email = req.user.email;
-    const query = `SELECT userRole FROM users WHERE email = ?`;
-
-    connectDB.query(query, [email], (err, results) => {
-        if (err) {
-            console.log('fetching error: ', err);
-            return res.status(500).json({ error: 'Failed to retrieve users' });
-        }
-        if (results.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        const isUser = results[0].userRole === 'user';
-        if (!isUser) {
-            return res.status(403).send({ message: 'Forbidden access' });
-        }
-        next();
-    })
-}
-
-const verifyAdmin = async (req, res, next) => {
-    const email = req.user.email;
-    const query = `SELECT userRole FROM users WHERE email = ?`;
-
-    connectDB.query(query, [email], (err, results) => {
-        if (err) {
-            console.log('fetching error: ', err);
-            return res.status(500).json({ error: 'Failed to retrieve users' });
-        }
-        if (results.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        const isUser = results[0].userRole === 'admin';
-        if (!isUser) {
-            return res.status(403).send({ message: 'Forbidden access' });
-        }
-        next();
-    })
-}
+const verifyUser = verifyRole(['user']);
+const verifyAgency = verifyRole(['agency']);
+const verifyDriver = verifyRole(['driver']);
+const verifyAdmin = verifyRole(['admin']);
 
 module.exports = { generateToken, verifyToken, verifyUser, verifyAgency, verifyDriver, verifyAdmin };

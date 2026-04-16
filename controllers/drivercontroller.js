@@ -1,5 +1,5 @@
 const pool = require('../config/db')
-const { createDriverId } = require('./createIDs')
+const { createDriverId, createAddressId } = require('./createIDs')
 
 const showAllDrivers = async (req, res) => {
      const { lat, lon } = req.query
@@ -51,11 +51,11 @@ const checkNID = async (req, res) => {
      const nid = req.params.nid;
 
      const query = `
-          SELECT _id
+          SELECT user_id AS id
           FROM users
           WHERE nid = $1
           UNION
-          SELECT _id
+          SELECT driver_id AS id
           FROM driver_info
           WHERE nid = $2 
      `
@@ -76,11 +76,11 @@ const checkPhone = async (req, res) => {
      const phone = req.params.phone;
 
      const query = `
-          SELECT _id
+          SELECT user_id AS id
           FROM users
           WHERE phone = $1
           UNION
-          SELECT _id
+          SELECT driver_id AS id
           FROM driver_info
           WHERE phone = $2
      `
@@ -101,7 +101,7 @@ const checkLicense = async (req, res) => {
      const license_number = req.params.license_number;
 
      const query = `
-          SELECT _id
+          SELECT driver_id AS id
           FROM driver_info
           WHERE license_number = $1
      `
@@ -125,25 +125,31 @@ const createDriver = async (req, res) => {
      const addressId = createAddressId();
 
      const verified = false
-     const accountStatus = "Active"
+     const accountStatus = "active"
      const license_status = "pending"
-     const availability = "Yes"
+     const availability = true
 
      const addressQuery = `
-          INSERT INTO address (address_id, district, upazilla, keyArea, area)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO address (address_id, city, area, postcode, latitude, longitude, display_name)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
      `;
 
      try {
-          const result = await pool.query(addressQuery, [addressId, address.district, address.upazilla, address.area, area]);
+          const city = address?.district || address?.city || null;
+          const locality = address?.upazilla || address?.area || area || null;
+          const postcode = address?.postcode || null;
+          const latitude = Number(address?.lat || address?.latitude || 0);
+          const longitude = Number(address?.lon || address?.longitude || 0);
+          const displayName = address?.display_name || locality || city || 'Unknown';
+          const result = await pool.query(addressQuery, [addressId, city, locality, postcode, latitude, longitude, displayName]);
           if (result.rowCount === 1) {
                const userQuery = `
-               INSERT INTO driver (_id, address_id, name, email, phone, gender, nid, dob, image, availability, verified, accountStatus, license_number, license_status, issue_date, experience, hiring_price, license_authority)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+               INSERT INTO driver_info (driver_id, address_id, name, email, phone, gender, nid, dob, photo, availability, verified, accountstatus, license_number, license_status, expire_date, experience_year, rental_price)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
                `;
 
                try {
-                    const userResult = await pool.query(userQuery, [driverId, addressId, name, email, phone, gender, nid, birthdate, profilePicture, availability, verified, accountStatus, licenseNumber, license_status, licenseIssueDate, experience, hiringPrice, issuingAuthority]);
+                    const userResult = await pool.query(userQuery, [driverId, addressId, name, email, phone, gender, nid, birthdate, profilePicture, availability, verified, accountStatus, licenseNumber, license_status, licenseIssueDate, experience, hiringPrice]);
                     if (userResult.rowCount === 1) {
                          return res.status(201).json({ message: 'User account created successfully', code: 1 });
                     } else {
@@ -161,4 +167,57 @@ const createDriver = async (req, res) => {
      }
 }
 
-module.exports = { showAllDrivers, checkNID, checkPhone, checkLicense, createDriver };
+const getDriverProfile = async (req, res) => {
+     const { email } = req.params;
+     try {
+          const result = await pool.query(
+               `SELECT d.*, a.display_name, a.city, a.area, a.postcode
+                FROM driver_info d
+                LEFT JOIN address a ON d.address_id = a.address_id
+                WHERE d.email = $1`,
+               [email]
+          );
+          res.json(result.rows[0] || null);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+const updateDriverAvailability = async (req, res) => {
+     const { driverId } = req.params;
+     const { availability } = req.body;
+     try {
+          await pool.query(
+               `UPDATE driver_info SET availability = $2 WHERE driver_id = $1`,
+               [driverId, Boolean(availability)]
+          );
+          res.json({ message: 'Driver availability updated' });
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+const verifyDriverAccount = async (req, res) => {
+     const { driverId } = req.params;
+     const { verified } = req.body;
+     try {
+          await pool.query(
+               `UPDATE driver_info SET verified = $2 WHERE driver_id = $1`,
+               [driverId, Boolean(verified)]
+          );
+          res.json({ message: 'Driver verification status updated' });
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+module.exports = {
+     showAllDrivers,
+     checkNID,
+     checkPhone,
+     checkLicense,
+     createDriver,
+     getDriverProfile,
+     updateDriverAvailability,
+     verifyDriverAccount
+};

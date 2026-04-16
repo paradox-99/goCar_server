@@ -23,7 +23,7 @@ const getAllAgency = async (req, res) => {
 const getAgencyProfile = async (req, res) => {
      const userEmail = req.params.email;
      const query = `
-          SELECT ag.agency_id, ag.agency_name, ag.phone_number, ag.email, ag.cars, ag.license, ag.tin, ag.insurancenumber, ag.tradelicenseexpire, ag.status, ag.expire_date, ag.bikes, ag.verified, u.name as owner_name, u.email as owner_email, u.phone as owner_phone, u.photo as owner_photo, u.user_id as owner_id, u.gender, u.dob, u.verified as owner_verified, u.accountStatus, ada.address_id as agency_add_id, ada.city as agency_city, ada.area as agency_area, ada.postcode as agency_postcode, ada.display_name as agency_full_address, adu.address_id as owner_add_id, adu.city as owner_city, adu.area as owner_area, adu.postcode as owner_postcode, adu.display_name as owner_full_address
+          SELECT ag.agency_id, ag.agency_name, ag.phone_number, ag.email, ag.cars, ag.license, ag.tin, ag.insurancenumber, ag.tradelicenseexpire, ag.status, ag.expire_date, ag.bikes, ag.verified, u.name as owner_name, u.email as owner_email, u.phone as owner_phone, u.photo as owner_photo, u.user_id as owner_id, u.gender, u.dob, u.verified as owner_verified, u.accountstatus, ada.address_id as agency_add_id, ada.city as agency_city, ada.area as agency_area, ada.postcode as agency_postcode, ada.display_name as agency_full_address, adu.address_id as owner_add_id, adu.city as owner_city, adu.area as owner_area, adu.postcode as owner_postcode, adu.display_name as owner_full_address
           FROM agencies as ag
           JOIN users as u ON ag.owner_id = u.user_id
           JOIN address as ada ON ag.address_id = ada.address_id
@@ -67,7 +67,7 @@ const getAgencyBookings = async (req, res) => {
           JOIN agencies ON cars.agency_id = agencies.agency_id)
           JOIN users ON booking_info.user_id = users.user_id)
           WHERE agencies.owner_id = $1
-          ORDER BY booking_info.booking_date DESC
+          ORDER BY booking_info.booking_ts DESC
      `
 
      try {
@@ -83,7 +83,7 @@ const getAgencyOwner = async (req, res) => {
      const query = `
           SELECT name
           FROM users
-          WHERE _id = $1
+          WHERE user_id = $1
      `
      try {
           const result = await pool.query(query, [ownerId]);
@@ -97,7 +97,7 @@ const getAllBookings = async (req, res) => {
      const query = `
           SELECT booking_info.*, cars.brand, cars.model, users.name, users.email, agencies.agency_Name
           FROM (((booking_info
-          JOIN users ON booking_info.user_id = users._id)
+          JOIN users ON booking_info.user_id = users.user_id)
           JOIN cars ON booking_info.vehicle_id = cars.car_id)
           JOIN agencies ON cars.agency_id = agencies.agency_id)
      `
@@ -131,10 +131,10 @@ const getAgencyActiveBookingCars = async (req, res) => {
      const query = `
           SELECT cars.brand, cars.model, booking_info.*
           FROM (((users
-          JOIN agencies ON users._id = agencies.owner_id)
+          JOIN agencies ON users.user_id = agencies.owner_id)
           JOIN cars ON agencies.agency_id = cars.agency_id)
           JOIN booking_info ON cars.car_id = booking_info.vehicle_id)
-          WHERE users._id = $1
+          WHERE users.user_id = $1
      `
      try {
           const result = await pool.query(query, [id]);

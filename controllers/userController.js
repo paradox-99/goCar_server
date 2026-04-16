@@ -26,7 +26,7 @@ const getUserRole = async (req, res) => {
           WHERE email = $1`
 
      const query2 = `
-          SELECT driver_id, name, 'driver' AS userrole, photo
+          SELECT driver_id AS user_id, name, 'driver' AS userrole, photo
           FROM driver_info
           WHERE email = $1
      `
@@ -46,10 +46,9 @@ const getUserRole = async (req, res) => {
 
 const getUser = async (req, res) => {
      const email = req.params.email;
-
-     // if (req.user.email !== email) {
-     //      return res.status(403).json({ error: 'Forbidden access' });
-     // }
+     if (req.user?.email !== email && req.user?.role !== 'admin') {
+          return res.status(403).json({ error: 'Forbidden access' });
+     }
 
      const query = `
           SELECT users.*, address.*
@@ -87,12 +86,12 @@ const checkNID = async (req, res) => {
      const nid = req.params.nid;
      
      const query = `
-          SELECT _id
+          SELECT user_id AS id
           FROM users
           WHERE nid = $1
           UNION
-          SELECT _id
-          FROM drivers
+          SELECT driver_id AS id
+          FROM driver_info
           WHERE nid = $2 
      `
 
@@ -114,12 +113,12 @@ const checkPhone = async (req, res) => {
      const phone = req.params.phone;
 
      const query = `
-          SELECT _id
+          SELECT user_id AS id
           FROM users
           WHERE phone = $1
           UNION
-          SELECT _id
-          FROM drivers
+          SELECT driver_id AS id
+          FROM driver_info
           WHERE phone = $2
      `
 
@@ -144,23 +143,29 @@ const createUser = async (req, res) => {
 
      const userRole = "user"
      const verified = false
-     const accountStatus = "Active"
+     const accountStatus = "active"
      const license_number = null
      const license_status = "pending"
      const expire_date = null
      const experience = null
 
      const addressQuery = `
-          INSERT INTO address (address_id, district, upazilla, keyArea, area)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO address (address_id, city, area, postcode, latitude, longitude, display_name)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
      `;
 
      try {
-          const result = await pool.query(addressQuery, [addressId, address.district, address.upazilla, address.area, area]);
+          const city = address?.district || address?.city || null;
+          const locality = address?.upazilla || address?.area || area || null;
+          const postcode = address?.postcode || null;
+          const latitude = Number(address?.lat || address?.latitude || 0);
+          const longitude = Number(address?.lon || address?.longitude || 0);
+          const displayName = address?.display_name || locality || city || 'Unknown';
+          const result = await pool.query(addressQuery, [addressId, city, locality, postcode, latitude, longitude, displayName]);
 
           if (result.rowCount === 1) {
                const userQuery = `
-               INSERT INTO users (_id, address_id, name, email, phone, gender, nid, dob, image, userRole, verified, accountStatus, license_number, license_status, expire_date, experience)
+               INSERT INTO users (user_id, address_id, name, email, phone, gender, nid, dob, photo, userrole, verified, accountstatus, license_number, license_status, expire_date, experience)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                `;
 

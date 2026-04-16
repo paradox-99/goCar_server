@@ -6,24 +6,28 @@ const pool = require('../config/db');
 Router.post("/jwt", async (req, res) => {
     const { email } = req.body;
 
+    console.log(email);
+    
+
     const query = `
-        SELECT _id AS id, userRole, email
+        SELECT user_id AS id, userrole::text, email
         FROM users
         WHERE email = $1
         UNION
-        SELECT _id AS id, 'driver' AS userRole, email
-        FROM drivers
+        SELECT driver_id AS id, 'driver' AS userrole, email
+        FROM driver_info
         WHERE email = $2 `;
-
+        
     try {
         const result = await pool.query(query, [email, email]);
+        
         if (result.rowCount !== 0) {
             const token = generateToken(result.rows[0]);
 
             res.cookie('accessToken', token, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV !== "development" ? true : false,
-                sameSite: process.env.NODE_ENV !== "development" ? "None" : "Lax",
+                secure: process.env.NODE_ENV === "production",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
                 maxAge: 15 * 24 * 60 * 60 * 1000
             })
                 .send({ success: true });
@@ -39,6 +43,8 @@ Router.post("/jwt", async (req, res) => {
 Router.post("/logout", (req, res) => {
     res.clearCookie('accessToken', {
         maxAge: 0,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
     }).send({ success: true, message: 'Logged out successfully' });
 })
 

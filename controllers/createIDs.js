@@ -1,44 +1,54 @@
-import crypto from 'crypto';
+const crypto = require('crypto');
 
-export function createUserId() {
+function createUserId() {
      const prefix = "USER-";
      const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
      return `${prefix}${uniqueNumber}`;
 }
 
-export function createAddressId() {
+function createAddressId() {
      const prefix = "ADD-";
      const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
      return `${prefix}${uniqueNumber}`;
 }
 
-export function createAgencyId() {
+function createAgencyId() {
      const prefix = "AG-";
      const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
      return `${prefix}${uniqueNumber}`;
 }
 
-export function createDriverId() {
+function createDriverId() {
      const prefix = "DRI-";
      const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
      return `${prefix}${uniqueNumber}`;
 }
 
-export function generatePaymentId() {
+function generatePaymentId() {
      const prefix = "PAY-";
      const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
      return `${prefix}${uniqueNumber}`;
 }
 
-export function generateBookingId() {
+function generateBookingId() {
      const prefix = "BOOK-";
      const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
      return `${prefix}${uniqueNumber}`;
 }
 
-export function generateTransactionId() {
+function generateTransactionId() {
      const prefix = "TRX";
      const timestamp = Date.now();
      const randomValue = crypto.randomBytes(4).toString("hex"); // Generates a random 8-character hex string
      return `${prefix}_${timestamp}${randomValue}`;
 }
+
+module.exports = {
+     createUserId,
+     createAddressId,
+     createAgencyId,
+     createDriverId,
+     generatePaymentId,
+     generateBookingId,
+     generateTransactionId
+};

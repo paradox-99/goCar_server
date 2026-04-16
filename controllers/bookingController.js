@@ -5,7 +5,7 @@ const createBooking = async (req, res) => {
      const { vehicle_type, driver_cost, start_ts, end_ts, total_cost, total_rent_hours, user_id, vehicle_id, booking_purpose, estimated_destination, driver_id } = req.body;
 
      const booking_id = generateBookingId();
-     const status = 'Requested';
+     const status = 'pending';
      const client = await pool.connect();      
 
      const query = `
@@ -34,16 +34,30 @@ const createBooking = async (req, res) => {
      try {
           await client.query('BEGIN');
 
-          const result = await client.query(query, [booking_id, vehicle_type, vehicle_id, start_ts, end_ts, total_rent_hours, driver_cost, total_cost, driver_id, user_id, booking_purpose, status, estimated_destination]);
+          const result = await client.query(query, [
+               booking_id,
+               vehicle_type?.toLowerCase(),
+               vehicle_id,
+               start_ts,
+               end_ts,
+               total_rent_hours,
+               driver_cost || 0,
+               total_cost,
+               driver_id || null,
+               status,
+               user_id,
+               booking_purpose,
+               estimated_destination
+          ]);
           if (result.rowCount === 0) {
                await client.query('ROLLBACK');
                return res.status(200).json({ message: 'Failed To Create Booking.', code: 0 });
           }
 
           // Update vehicle availability based on type
-          if (vehicle_type === 'Car') {
+          if (vehicle_type?.toLowerCase() === 'car') {
                await client.query(updateCarStatus, [vehicle_id]);
-          } else if (vehicle_type === 'Bike') {
+          } else if (vehicle_type?.toLowerCase() === 'bike') {
                await client.query(updateBikeStatus, [vehicle_id]);
           }
 
@@ -69,8 +83,9 @@ const getUserBookings = async (req, res) => {
      const query = `
           SELECT booking_info.*, cars.brand, cars.model, cars.car_type, cars.images, cars.seats, cars.fuel, cars.mileage, cars.gear, cars.rental_price, cars.transmission_type, agencies.agency_name, agencies.address_id, agencies.phone_number as agency_phone, agencies.email as agency_email, driver_info.name as driver_name, driver_info.email as driver_email, driver_info.address_id as driver_address_id, driver_info.phone as driver_phone, driver_info.photo as driver_photo, driver_info.experience_year, driver_info.rating, driver_info.rental_price, agadd.display_name as agency_address, driadd.display_name as driver_address
           FROM booking_info
-          JOIN cars ON booking_info.vehicle_id = cars.car_id
-          JOIN agencies ON cars.agency_id = agencies.agency_id
+          LEFT JOIN cars ON booking_info.vehicle_id = cars.car_id AND booking_info.vehicle_type = 'car'
+          LEFT JOIN bikes ON booking_info.vehicle_id = bikes.bike_id AND booking_info.vehicle_type = 'bike'
+          JOIN agencies ON COALESCE(cars.agency_id, bikes.agency_id) = agencies.agency_id
           JOIN address as agadd ON agencies.address_id = agadd.address_id
           LEFT JOIN driver_info ON booking_info.driver_id = driver_info.driver_id
           LEFT JOIN address as driadd ON driver_info.address_id = driadd.address_id
@@ -95,7 +110,7 @@ const cancelBooking = async (req, res) => {
 
      const updateCancelReason = `
           UPDATE booking_info
-          SET cancelled_by = $2, cancel_reason = $3, status = 'Cancelled', cancelled_at = now()
+          SET cancelled_by = $2, cancel_reason = $3, status = 'cancelled', cancelled_at = now()
           WHERE booking_id = $1
      `;
 
@@ -139,9 +154,9 @@ const cancelBooking = async (req, res) => {
                const { vehicle_type, vehicle_id } = vehicleResult.rows[0];
                
                // Update appropriate vehicle table based on type
-               if (vehicle_type === 'Car') {
+               if (vehicle_type === 'car') {
                     await client.query(updateCarStatus, [vehicle_id]);
-               } else if (vehicle_type === 'Bike') {
+               } else if (vehicle_type === 'bike') {
                     await client.query(updateBikeStatus, [vehicle_id]);
                }
           }
@@ -167,7 +182,7 @@ const getCarBookings = async (req, res) => {
      const query = `
           SELECT booking_info.*, users.name, users.phone
           FROM (booking_info
-          JOIN users ON booking_info.user_id = users._id)
+          JOIN users ON booking_info.user_id = users.user_id)
           WHERE booking_info.vehicle_id = $1
      `
      try {

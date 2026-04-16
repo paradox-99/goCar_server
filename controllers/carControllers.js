@@ -162,14 +162,16 @@ const carsByQuery = async (req, res) => {
 const carsByFilter = async (req, res) => {
      const params = req.query;
      let query = ''
+     let values = [];
      if (params.district) {
           query = `
                SELECT cars.*
                FROM ((address
                JOIN agencies ON address.address_id = agencies.address_id)
                JOIN cars ON agencies.agency_id = cars.agency_id)
-               WHERE '${params.district}' = address.district
+               WHERE address.city = $1
           `
+          values = [params.district];
      }
      else if (params.upazilla) {
           query = `
@@ -177,12 +179,16 @@ const carsByFilter = async (req, res) => {
                FROM ((address
                JOIN agencies ON address.address_id = agencies.address_id)
                JOIN cars ON agencies.agency_id = cars.agency_id)
-               WHERE '${params.upazilla}' = address.upazilla
+               WHERE address.area = $1
           `
+          values = [params.upazilla];
+     }
+     else {
+          return res.status(400).json({ message: 'Missing filter parameter' });
      }
 
      try {
-          const result = await pool.query(query);
+          const result = await pool.query(query, values);
           res.json(result.rows);
      } catch (error) {
           res.status(500).send(error.message);
