@@ -81,12 +81,35 @@ const getUserBookings = async (req, res) => {
      const id = req.params.id;
      
      const query = `
-          SELECT booking_info.*, cars.brand, cars.model, cars.car_type, cars.images, cars.seats, cars.fuel, cars.mileage, cars.gear, cars.rental_price, cars.transmission_type, agencies.agency_name, agencies.address_id, agencies.phone_number as agency_phone, agencies.email as agency_email, driver_info.name as driver_name, driver_info.email as driver_email, driver_info.address_id as driver_address_id, driver_info.phone as driver_phone, driver_info.photo as driver_photo, driver_info.experience_year, driver_info.rating, driver_info.rental_price, agadd.display_name as agency_address, driadd.display_name as driver_address
+          SELECT 
+               booking_info.*, 
+               COALESCE(cars.brand, bikes.brand) as brand, 
+               COALESCE(cars.model, bikes.model) as model, 
+               COALESCE(cars.car_type, bikes.car_type) as car_type, 
+               COALESCE(cars.images, bikes.images) as images, 
+               cars.seats, 
+               COALESCE(cars.fuel, bikes.fuel) as fuel, 
+               COALESCE(cars.mileage, bikes.mileage) as mileage, 
+               COALESCE(cars.gear, bikes.gear) as gear, 
+               COALESCE(cars.rental_price, bikes.rental_price) as vehicle_rental_price, 
+               cars.transmission_type, 
+               agencies.agency_name, 
+               agencies.phone_number as agency_phone, 
+               agencies.email as agency_email, 
+               driver_info.name as driver_name, 
+               driver_info.email as driver_email, 
+               driver_info.phone as driver_phone, 
+               driver_info.photo as driver_photo, 
+               driver_info.experience_year as driver_experience, 
+               driver_info.rating as driver_rating, 
+               driver_info.rental_price as driver_rental_price, 
+               agadd.display_name as agency_address, 
+               driadd.display_name as driver_address
           FROM booking_info
-          LEFT JOIN cars ON booking_info.vehicle_id = cars.car_id AND booking_info.vehicle_type = 'car'
-          LEFT JOIN bikes ON booking_info.vehicle_id = bikes.bike_id AND booking_info.vehicle_type = 'bike'
-          JOIN agencies ON COALESCE(cars.agency_id, bikes.agency_id) = agencies.agency_id
-          JOIN address as agadd ON agencies.address_id = agadd.address_id
+          LEFT JOIN cars ON booking_info.vehicle_id = cars.car_id AND LOWER(booking_info.vehicle_type::text) = 'car'
+          LEFT JOIN bikes ON booking_info.vehicle_id = bikes.bike_id AND LOWER(booking_info.vehicle_type::text) = 'bike'
+          LEFT JOIN agencies ON COALESCE(cars.agency_id, bikes.agency_id) = agencies.agency_id
+          LEFT JOIN address as agadd ON agencies.address_id = agadd.address_id
           LEFT JOIN driver_info ON booking_info.driver_id = driver_info.driver_id
           LEFT JOIN address as driadd ON driver_info.address_id = driadd.address_id
           WHERE booking_info.user_id = $1
@@ -95,7 +118,7 @@ const getUserBookings = async (req, res) => {
           const result = await pool.query(query, [id]);
           res.json(result.rows);
      } catch (error) {
-          console.log(error.message);
+          console.error("Error in getUserBookings:", error);
           res.status(500).send(error.message);
      }
 }
