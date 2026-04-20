@@ -216,4 +216,34 @@ const getCarBookings = async (req, res) => {
      }
 }
 
-module.exports = { createBooking, getUserBookings, cancelBooking, getCarBookings }
+const updateBookingStatus = async (req, res) => {
+     const id = req.params.id;
+     const { status } = req.body;
+     
+     if (!status) {
+          return res.status(400).json({ message: 'Status is required.' });
+     }
+
+     const query = `
+          UPDATE booking_info
+          SET status = $2
+          WHERE booking_id = $1
+          RETURNING *
+     `;
+     
+     try {
+          const result = await pool.query(query, [id, status]);
+          if (result.rowCount === 0) {
+               return res.status(404).json({ message: 'Booking not found.' });
+          }
+          res.status(200).json({ 
+               message: `Status updated to ${status} successfully.`, 
+               booking: result.rows[0] 
+          });
+     } catch (error) {
+          console.error("Error updating booking status:", error);
+          res.status(500).send(error.message);
+     }
+}
+
+module.exports = { createBooking, getUserBookings, cancelBooking, getCarBookings, updateBookingStatus }
