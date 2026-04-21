@@ -7,10 +7,11 @@ const MESSAGES = require('../constants/messages');
 
 const getAllAgency = async (req, res) => {
      const query = `
-          Select agencies.*, address.* 
+          Select agencies.agency_id, agencies.agency_name, agencies.cars, agencies.bikes, agencies.rating, agencies.review_count, address.display_name 
           from agencies
           join address
           on agencies.address_id = address.address_id
+          where agencies.status = 'Active' and agencies.verified = true
      `
      try {
           const results = await pool.query(query);
