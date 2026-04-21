@@ -215,4 +215,102 @@ const updateUserAddress = asyncHandler(async (req, res) => {
      });
 });
 
-module.exports = { showAllUsers, getUserRole, getUser, getBookings, createUser, checkNID, checkPhone, updateUserInfo, updateUserAddress };
+const getUserById = async (req, res) => {
+     const id = req.params.id;
+     const query = `
+          SELECT users.*, address.*
+          FROM users
+          JOIN address ON users.address_id = address.address_id
+          WHERE users.user_id = $1
+     `
+     try {
+          const result = await pool.query(query, [id]);
+          if (result.rowCount === 0) {
+               return res.status(404).json({ message: 'User not found.' });
+          }
+          res.json(result.rows[0]);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
+const getDashboardStats = asyncHandler(async (req, res) => {
+     const userId = req.params.userId;
+
+     // 1. Total bookings
+     const totalBookingsResult = await pool.query(
+          `SELECT COUNT(*) AS total_bookings FROM booking_info WHERE user_id = $1`,
+          [userId]
+     );
+
+     // 2. Active bookings
+     const activeBookingsResult = await pool.query(
+          `SELECT COUNT(*) AS active_bookings FROM booking_info
+           WHERE user_id = $1 AND status IN ('Requested', 'Confirmed', 'Running')`,
+          [userId]
+     );
+
+     // 3. Total spent
+     const totalSpentResult = await pool.query(
+          `SELECT COALESCE(SUM(total_cost), 0) AS total_spent FROM booking_info
+           WHERE user_id = $1 AND status = 'Completed'`,
+          [userId]
+     );
+
+     // 4. Favourite count (safe fallback if table doesn't exist)
+     let favouriteCount = 0;
+     try {
+          const favResult = await pool.query(
+               `SELECT COUNT(*) AS favourite_count FROM favourite_cars WHERE user_id = $1`,
+               [userId]
+          );
+          favouriteCount = parseInt(favResult.rows[0]?.favourite_count || 0);
+     } catch (_) {
+          favouriteCount = 0;
+     }
+
+     // 5. Unread notifications
+     const unreadResult = await pool.query(
+          `SELECT COUNT(*) AS unread_notifications FROM notifications
+           WHERE user_id = $1 AND is_read = false`,
+          [userId]
+     );
+
+     // 6. Upcoming booking (Confirmed, start_ts in the future)
+     const upcomingResult = await pool.query(
+          `SELECT b.booking_id, c.brand, c.model, c.images[1] AS car_image,
+                  b.start_ts, b.end_ts, b.status
+           FROM booking_info b
+           JOIN cars c ON b.vehicle_id = c.car_id
+           WHERE b.user_id = $1
+             AND b.status IN ('Confirmed')
+             AND b.start_ts > NOW()
+           ORDER BY b.start_ts ASC
+           LIMIT 1`,
+          [userId]
+     );
+
+     // 7. Most recent booking
+     const recentResult = await pool.query(
+          `SELECT b.booking_id, c.brand, c.model, c.images[1] AS car_image,
+                  b.total_cost, b.status
+           FROM booking_info b
+           JOIN cars c ON b.vehicle_id = c.car_id
+           WHERE b.user_id = $1
+           ORDER BY b.booking_ts DESC
+           LIMIT 1`,
+          [userId]
+     );
+
+     res.status(HTTP_STATUS.OK).json({
+          total_bookings: parseInt(totalBookingsResult.rows[0]?.total_bookings || 0),
+          active_bookings: parseInt(activeBookingsResult.rows[0]?.active_bookings || 0),
+          total_spent: parseInt(totalSpentResult.rows[0]?.total_spent || 0),
+          favourite_count: favouriteCount,
+          unread_notifications: parseInt(unreadResult.rows[0]?.unread_notifications || 0),
+          upcoming_booking: upcomingResult.rows[0] || null,
+          recent_booking: recentResult.rows[0] || null,
+     });
+});
+
+module.exports = { showAllUsers, getUserRole, getUser, getBookings, createUser, checkNID, checkPhone, updateUserInfo, updateUserAddress, getUserById, getDashboardStats };

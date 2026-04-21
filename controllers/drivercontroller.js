@@ -211,6 +211,56 @@ const verifyDriverAccount = async (req, res) => {
      }
 };
 
+const getAgencyDriversByEmail = async (req, res) => {
+     const email = req.params.email;
+     const query = `
+          SELECT d.*, a.display_name as address_display_name
+          FROM driver_info d
+          JOIN agencies ag ON d.agency_id = ag.agency_id
+          JOIN users u ON ag.owner_id = u.user_id
+          LEFT JOIN address a ON d.address_id = a.address_id
+          WHERE u.email = $1
+     `
+     try {
+          const result = await pool.query(query, [email]);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
+const adminGetAllDrivers = async (req, res) => {
+     const query = `
+          SELECT d.*, a.display_name, ag.agency_name
+          FROM driver_info d
+          LEFT JOIN address a ON d.address_id = a.address_id
+          LEFT JOIN agencies ag ON d.agency_id = ag.agency_id
+     `
+     try {
+          const result = await pool.query(query);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
+const getDriverProfileById = async (req, res) => {
+     const { id } = req.params;
+     try {
+          const result = await pool.query(
+               `SELECT d.*, a.display_name, a.city, a.area, a.postcode, ag.agency_name
+                FROM driver_info d
+                LEFT JOIN address a ON d.address_id = a.address_id
+                LEFT JOIN agencies ag ON d.agency_id = ag.agency_id
+                WHERE d.driver_id = $1`,
+               [id]
+          );
+          res.json(result.rows[0] || null);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
 module.exports = {
      showAllDrivers,
      checkNID,
@@ -219,5 +269,8 @@ module.exports = {
      createDriver,
      getDriverProfile,
      updateDriverAvailability,
-     verifyDriverAccount
+     verifyDriverAccount,
+     getAgencyDriversByEmail,
+     adminGetAllDrivers,
+     getDriverProfileById
 };

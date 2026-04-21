@@ -489,4 +489,19 @@ ALTER TABLE IF EXISTS public.users
     ON UPDATE NO ACTION
     ON DELETE NO ACTION;
 
+-- Enums
+
+-- "account_status": "Active, Inactive, Suspended"
+-- "agency_status": "Active, Inactive, Suspend"
+-- "booking_status": "Completed, Confirmed, Cancelled, Running, Requested, Overdue"
+-- "car_status": "Available, Unavailable, Suspend, Maintenance, Booked, Requested"
+-- "damage_severity": "Low, Medium, High"
+-- "damage_status": "Pending, On-Review, Resolved"
+-- "license_status": "Verified, Unverified, Expired"
+-- "owner_type": "Agency, Individual"
+-- "payment_method": "card, mobile_banking, cash"
+-- "transmission_type": "Manual, Automatic"
+-- "user_role": "user, car_owner, agency, admin"
+-- "vehicle_type": "Car, Bike"
+
 END;

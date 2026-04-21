@@ -62,13 +62,11 @@ const getAgencyBookings = async (req, res) => {
      const ownerId = req.params.id
      const query = `
           SELECT booking_info.*, cars.brand, cars.model, users.name, users.email, agencies.agency_name
-          FROM ((((booking_info
-          JOIN cars ON booking_info.vehicle_id = cars.car_id)
-          JOIN agencies ON cars.agency_id = agencies.agency_id)
-          JOIN users ON booking_info.user_id = users.user_id)
+          JOIN users ON booking_info.user_id = users.user_id
+          JOIN agencies ON cars.agency_id = agencies.agency_id
           WHERE agencies.owner_id = $1
-          ORDER BY booking_info.booking_ts DESC
-     `
+          ORDER BY booking_info.booking_ts DESC`
+     
 
      try {
           const result = await pool.query(query, [ownerId]);
@@ -126,6 +124,7 @@ const getAgencyCarsByOwner = async (req, res) => {
      }
 }
 
+
 const getAgencyActiveBookingCars = async (req, res) => {
      const id = req.params.id;
      const query = `
@@ -138,6 +137,34 @@ const getAgencyActiveBookingCars = async (req, res) => {
      `
      try {
           const result = await pool.query(query, [id]);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
+const getAgencyBookingsByEmail = async (req, res) => {
+     const email = req.params.email;
+     const query = `
+          SELECT 
+               booking_info.*, 
+               cars.brand, 
+               cars.model, 
+               cars.images,
+               users.name as user_name, 
+               users.email as user_email, 
+               users.phone as user_phone,
+               agencies.agency_name
+          FROM booking_info
+          JOIN users ON booking_info.user_id = users.user_id
+          JOIN cars ON booking_info.vehicle_id = cars.car_id
+          JOIN agencies ON cars.agency_id = agencies.agency_id
+          JOIN users as owners ON agencies.owner_id = owners.user_id
+          WHERE owners.email = $1
+          ORDER BY booking_info.booking_ts DESC
+     `
+     try {
+          const result = await pool.query(query, [email]);
           res.json(result.rows);
      } catch (error) {
           res.status(500).send(error.message);
@@ -181,6 +208,49 @@ const updateAgencyInfo = asyncHandler(async (req, res) => {
      });
 });
 
+const getAgencyByIdDetailed = async (req, res) => {
+     const agencyId = req.params.id;
+     const query = `
+          SELECT 
+               ag.*, 
+               u.name as owner_name, u.email as owner_email, u.phone as owner_phone, u.photo as owner_photo,
+               ada.city as agency_city, ada.area as agency_area, ada.postcode as agency_postcode, ada.display_name as agency_full_address,
+               (SELECT COUNT(*) FROM cars WHERE agency_id = ag.agency_id) as car_count,
+               (SELECT COUNT(*) FROM bikes WHERE agency_id = ag.agency_id) as bike_count
+          FROM agencies as ag
+          JOIN users as u ON ag.owner_id = u.user_id
+          JOIN address as ada ON ag.address_id = ada.address_id
+          WHERE ag.agency_id = $1
+     `
+     try {
+          const result = await pool.query(query, [agencyId]);
+          if (result.rowCount === 0) {
+               return res.status(404).json({ message: 'Agency not found.' });
+          }
+          res.json(result.rows[0]);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
+const getAdminStats = async (req, res) => {
+     const query = `
+          SELECT 
+               (SELECT COUNT(*) FROM users) as total_users,
+               (SELECT COUNT(*) FROM agencies) as total_agencies,
+               (SELECT COUNT(*) FROM driver_info) as total_drivers,
+               (SELECT COUNT(*) FROM cars) + (SELECT COUNT(*) FROM bikes) as total_vehicles,
+               (SELECT COUNT(*) FROM booking_info) as total_bookings,
+               (SELECT SUM(total_cost) FROM booking_info WHERE status = 'Completed') as total_revenue
+     `
+     try {
+          const result = await pool.query(query);
+          res.json(result.rows[0]);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
 module.exports = { 
      getAllAgency, 
      getAgencyDetails, 
@@ -190,6 +260,9 @@ module.exports = {
      getAgencyCarsByOwner, 
      getAgencyActiveBookingCars,
      getAgencyBookings,
+     getAgencyBookingsByEmail,
      updateAgencyOwnerInfo,
-     updateAgencyInfo
+     updateAgencyInfo,
+     getAgencyByIdDetailed,
+     getAdminStats
 };

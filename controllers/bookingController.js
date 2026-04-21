@@ -216,6 +216,48 @@ const getCarBookings = async (req, res) => {
      }
 }
 
+const getDriverBookings = async (req, res) => {
+     const id = req.params.id;
+     const query = `
+          SELECT 
+               booking_info.*, 
+               COALESCE(cars.brand, bikes.brand) as brand, 
+               COALESCE(cars.model, bikes.model) as model, 
+               COALESCE(cars.car_type, bikes.car_type) as car_type, 
+               COALESCE(cars.images, bikes.images) as images, 
+               cars.seats, 
+               COALESCE(cars.fuel, bikes.fuel) as fuel, 
+               COALESCE(cars.mileage, bikes.mileage) as mileage, 
+               COALESCE(cars.gear, bikes.gear) as gear, 
+               COALESCE(cars.rental_price, bikes.rental_price) as vehicle_rental_price, 
+               cars.transmission_type, 
+               agencies.agency_name, 
+               agencies.phone_number as agency_phone, 
+               agencies.email as agency_email, 
+               users.name as user_name, 
+               users.email as user_email, 
+               users.phone as user_phone, 
+               users.photo as user_photo, 
+               agadd.display_name as agency_address,
+               useradd.display_name as user_address
+          FROM booking_info
+          LEFT JOIN cars ON booking_info.vehicle_id = cars.car_id AND LOWER(booking_info.vehicle_type::text) = 'car'
+          LEFT JOIN bikes ON booking_info.vehicle_id = bikes.bike_id AND LOWER(booking_info.vehicle_type::text) = 'bike'
+          LEFT JOIN agencies ON COALESCE(cars.agency_id, bikes.agency_id) = agencies.agency_id
+          LEFT JOIN address as agadd ON agencies.address_id = agadd.address_id
+          LEFT JOIN users ON booking_info.user_id = users.user_id
+          LEFT JOIN address as useradd ON users.address_id = useradd.address_id
+          WHERE booking_info.driver_id = $1
+     `
+     try {
+          const result = await pool.query(query, [id]);
+          res.json(result.rows);
+     } catch (error) {
+          console.error("Error in getDriverBookings:", error);
+          res.status(500).send(error.message);
+     }
+}
+
 const updateBookingStatus = async (req, res) => {
      const id = req.params.id;
      const { status } = req.body;
@@ -246,4 +288,53 @@ const updateBookingStatus = async (req, res) => {
      }
 }
 
-module.exports = { createBooking, getUserBookings, cancelBooking, getCarBookings, updateBookingStatus }
+const getBookingById = async (req, res) => {
+     const id = req.params.id;
+     const query = `
+          SELECT 
+               booking_info.*, 
+               COALESCE(cars.brand, bikes.brand) as brand, 
+               COALESCE(cars.model, bikes.model) as model, 
+               COALESCE(cars.car_type, bikes.car_type) as car_type, 
+               COALESCE(cars.images, bikes.images) as images, 
+               cars.seats, 
+               COALESCE(cars.fuel, bikes.fuel) as fuel, 
+               COALESCE(cars.mileage, bikes.mileage) as mileage, 
+               COALESCE(cars.gear, bikes.gear) as gear, 
+               COALESCE(cars.rental_price, bikes.rental_price) as vehicle_rental_price, 
+               cars.transmission_type, 
+               agencies.agency_name, 
+               agencies.phone_number as agency_phone, 
+               agencies.email as agency_email, 
+               users.name as user_name, 
+               users.email as user_email, 
+               users.phone as user_phone, 
+               users.photo as user_photo, 
+               agadd.display_name as agency_address,
+               useradd.display_name as user_address,
+               driver_info.name as driver_name,
+               driver_info.phone as driver_phone,
+               driver_info.photo as driver_photo
+          FROM booking_info
+          LEFT JOIN cars ON booking_info.vehicle_id = cars.car_id AND LOWER(booking_info.vehicle_type::text) = 'car'
+          LEFT JOIN bikes ON booking_info.vehicle_id = bikes.bike_id AND LOWER(booking_info.vehicle_type::text) = 'bike'
+          LEFT JOIN agencies ON COALESCE(cars.agency_id, bikes.agency_id) = agencies.agency_id
+          LEFT JOIN address as agadd ON agencies.address_id = agadd.address_id
+          LEFT JOIN users ON booking_info.user_id = users.user_id
+          LEFT JOIN address as useradd ON users.address_id = useradd.address_id
+          LEFT JOIN driver_info ON booking_info.driver_id = driver_info.driver_id
+          WHERE booking_info.booking_id = $1
+     `
+     try {
+          const result = await pool.query(query, [id]);
+          if (result.rowCount === 0) {
+               return res.status(404).json({ message: 'Booking not found.' });
+          }
+          res.json(result.rows[0]);
+     } catch (error) {
+          console.error("Error in getBookingById:", error);
+          res.status(500).send(error.message);
+     }
+}
+
+module.exports = { createBooking, getUserBookings, cancelBooking, getCarBookings, updateBookingStatus, getDriverBookings, getBookingById }

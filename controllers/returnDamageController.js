@@ -49,4 +49,27 @@ const reportDamage = async (req, res) => {
      }
 };
 
-module.exports = { createPickup, createReturn, reportDamage };
+const getUserDamageReports = async (req, res) => {
+     const userId = req.params.userId;
+     const query = `
+          SELECT 
+               dr.*, 
+               c.brand, 
+               c.model, 
+               c.images as car_images,
+               b.booking_id
+          FROM damage_reports dr
+          JOIN booking_info b ON dr.booking_id = b.booking_id
+          LEFT JOIN cars c ON dr.car_id = c.car_id
+          WHERE dr.reported_by = $1
+          ORDER BY dr.report_date DESC
+     `
+     try {
+          const result = await pool.query(query, [userId]);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+}
+
+module.exports = { createPickup, createReturn, reportDamage, getUserDamageReports };
