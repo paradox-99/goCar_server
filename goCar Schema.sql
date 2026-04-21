@@ -308,6 +308,13 @@ CREATE TABLE IF NOT EXISTS public.users
     CONSTRAINT users_pkey PRIMARY KEY (user_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.favourite_cars (
+  user_id VARCHAR(20) REFERENCES users(user_id),
+  car_id  VARCHAR(20) REFERENCES cars(car_id),
+  added_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, car_id)
+);
+
 ALTER TABLE IF EXISTS public.agencies
     ADD CONSTRAINT agencies_address_id_fkey FOREIGN KEY (address_id)
     REFERENCES public.address (address_id) MATCH SIMPLE

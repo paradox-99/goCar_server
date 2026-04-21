@@ -139,6 +139,7 @@ const carsByQuery = async (req, res) => {
             images,
             status,
             rating,
+            verified,
             distance_m
           FROM all_vehicles v
           WHERE
@@ -322,4 +323,55 @@ const updateCarInfo = asyncHandler(async (req, res) => {
      });
 });
 
-module.exports = { showCarByBrand, showCarByType, carsByQuery, carsByFilter, carDetails, showAllCars, showAgencyCars, agencyActiveBookingCars, getCarReviews, createCar, updateCarInfo };
+// ── Favourites ──────────────────────────────────────────────────────────────
+
+const addFavourite = asyncHandler(async (req, res) => {
+     const { userId, carId } = req.body;
+     await pool.query(
+          `INSERT INTO favourite_cars (user_id, car_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [userId, carId]
+     );
+     res.status(HTTP_STATUS.OK).json({ success: true, message: 'Added to favourites' });
+});
+
+const removeFavourite = asyncHandler(async (req, res) => {
+     const { userId, carId } = req.body;
+     await pool.query(
+          `DELETE FROM favourite_cars WHERE user_id = $1 AND car_id = $2`,
+          [userId, carId]
+     );
+     res.status(HTTP_STATUS.OK).json({ success: true, message: 'Removed from favourites' });
+});
+
+const clearAllFavourites = asyncHandler(async (req, res) => {
+     const { userId } = req.params;
+     await pool.query(`DELETE FROM favourite_cars WHERE user_id = $1`, [userId]);
+     res.status(HTTP_STATUS.OK).json({ success: true, message: 'All favourites cleared' });
+});
+
+const getUserFavourites = asyncHandler(async (req, res) => {
+     const { userId } = req.params;
+     const result = await pool.query(
+          `SELECT c.car_id, c.brand, c.model, c.images, c.rental_price,
+                  c.seats, c.fuel, c.transmission_type, c.mileage, c.gear,
+                  c.air_conditioning, c.gps, c.bluetooth, c.rating, c.build_year,
+                  fc.added_at
+           FROM favourite_cars fc
+           JOIN cars c ON fc.car_id = c.car_id
+           WHERE fc.user_id = $1
+           ORDER BY fc.added_at DESC`,
+          [userId]
+     );
+     res.json(result.rows);
+});
+
+const checkFavourite = asyncHandler(async (req, res) => {
+     const { userId, carId } = req.params;
+     const result = await pool.query(
+          `SELECT 1 FROM favourite_cars WHERE user_id = $1 AND car_id = $2`,
+          [userId, carId]
+     );
+     res.json({ isFavourite: result.rowCount > 0 });
+});
+
+module.exports = { showCarByBrand, showCarByType, carsByQuery, carsByFilter, carDetails, showAllCars, showAgencyCars, agencyActiveBookingCars, getCarReviews, createCar, updateCarInfo, addFavourite, removeFavourite, clearAllFavourites, getUserFavourites, checkFavourite };
