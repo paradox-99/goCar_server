@@ -72,4 +72,40 @@ const getUserDamageReports = async (req, res) => {
      }
 }
 
-module.exports = { createPickup, createReturn, reportDamage, getUserDamageReports };
+const getAgencyDamageReports = async (req, res) => {
+     const agencyId = req.params.agencyId;
+     const query = `
+          SELECT 
+               dr.*, 
+               c.brand, 
+               c.model, 
+               u.name as reported_by_name
+          FROM damage_reports dr
+          JOIN cars c ON dr.car_id = c.car_id
+          JOIN users u ON dr.reported_by = u.user_id
+          WHERE c.agency_id = $1
+          ORDER BY dr.report_date DESC
+     `;
+     try {
+          const result = await pool.query(query, [agencyId]);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+const updateDamageStatus = async (req, res) => {
+     const { damageId } = req.params;
+     const { status } = req.body;
+     try {
+          await pool.query(
+               `UPDATE damage_reports SET status = $1 WHERE damage_id = $2`,
+               [status, damageId]
+          );
+          res.json({ message: 'Damage status updated' });
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+module.exports = { createPickup, createReturn, reportDamage, getUserDamageReports, getAgencyDamageReports, updateDamageStatus };

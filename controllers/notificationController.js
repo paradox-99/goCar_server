@@ -39,4 +39,26 @@ const markAsRead = async (req, res) => {
      }
 };
 
-module.exports = { listNotifications, createNotification, markAsRead };
+const getUnreadCount = async (req, res) => {
+     const { userId } = req.params;
+     try {
+          const result = await pool.query(
+               `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = false`,
+               [userId]
+          );
+          res.json({ unreadCount: parseInt(result.rows[0].count) });
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+const listAllNotifications = async (req, res) => {
+     try {
+          const result = await pool.query(`SELECT * FROM notifications ORDER BY created_at DESC`);
+          res.json(result.rows);
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+module.exports = { listNotifications, createNotification, markAsRead, getUnreadCount, listAllNotifications };
