@@ -6,7 +6,7 @@ const { verifyToken, verifyAdmin, verifyAgency } = require('../config/jwt');
 Router.get('/getAllAgency', getAllAgency);
 Router.get('/admin-stats', verifyToken, verifyAdmin, getAdminStats);
 Router.get('/agency-by-id-detailed/:id', verifyToken, verifyAdmin, getAgencyByIdDetailed);
-Router.get('/getAgencyDetails/:id', getAgencyDetails);
+Router.get('/getAgencyDetails/:id', verifyToken, getAgencyDetails);
 Router.get('/getAgencyOwner/:id', verifyToken, getAgencyOwner);
 Router.get('/getAllBookings', verifyToken, verifyAgency, getAllBookings);
 Router.get('/getAgencyProfile/:email', verifyToken, verifyAgency, getAgencyProfile);

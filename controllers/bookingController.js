@@ -5,7 +5,7 @@ const createBooking = async (req, res) => {
      const { vehicle_type, driver_cost, start_ts, end_ts, total_cost, total_rent_hours, user_id, vehicle_id, booking_purpose, estimated_destination, driver_id } = req.body;
 
      const booking_id = generateBookingId();
-     const status = 'pending';
+     const status = 'Pending';
      const client = await pool.connect();      
 
      const query = `
@@ -133,7 +133,7 @@ const cancelBooking = async (req, res) => {
 
      const updateCancelReason = `
           UPDATE booking_info
-          SET cancelled_by = $2, cancel_reason = $3, status = 'cancelled', cancelled_at = now()
+          SET cancelled_by = $2, cancel_reason = $3, status = 'Cancelled', cancelled_at = now()
           WHERE booking_id = $1
      `;
 
@@ -337,4 +337,47 @@ const getBookingById = async (req, res) => {
      }
 }
 
-module.exports = { createBooking, getUserBookings, cancelBooking, getCarBookings, updateBookingStatus, getDriverBookings, getBookingById }
+const checkAvailability = async (req, res) => {
+     const { vehicle_id, vehicle_type, start_ts, end_ts } = req.body;
+
+     const query = `
+          SELECT booking_id, start_ts, end_ts
+          FROM booking_info
+          WHERE vehicle_id = $1 
+          AND vehicle_type = $2 
+          AND status NOT IN ('Cancelled')
+          AND (($3 < end_ts) AND ($4 > start_ts))
+     `;
+
+     const nextAvailableQuery = `
+          SELECT MAX(end_ts) as next_available 
+          FROM booking_info
+          WHERE vehicle_id = $1 
+          AND vehicle_type = $2 
+          AND status NOT IN ('Cancelled')
+          AND end_ts > $3
+     `;
+
+     try {
+          const overlaps = await pool.query(query, [vehicle_id, vehicle_type, start_ts, end_ts]);
+          
+          if (overlaps.rowCount > 0) {
+               const nextAvailable = await pool.query(nextAvailableQuery, [vehicle_id, vehicle_type, start_ts]);
+               return res.status(200).json({
+                    available: false,
+                    message: 'Vehicle is already booked for this period.',
+                    nextAvailable: nextAvailable.rows[0].next_available
+               });
+          }
+
+          res.status(200).json({ 
+               available: true, 
+               message: 'Vehicle is available.' 
+          });
+     } catch (error) {
+          console.error(error.message);
+          res.status(500).send(error.message);
+     }
+}
+
+module.exports = { createBooking, getUserBookings, cancelBooking, getCarBookings, updateBookingStatus, getDriverBookings, getBookingById, checkAvailability }
