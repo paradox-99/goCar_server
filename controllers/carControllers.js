@@ -255,27 +255,36 @@ const showAgencyCars = async (req, res) => {
 
      if (id.includes('AG')) {
           query = `
-          SELECT cars.*
-          FROM (agencies 
-          JOIN cars ON agencies.agency_id = cars.agency_id)
-          WHERE agencies.agency_id = $1
+          SELECT car_id as vehicle_id, brand, model, car_type, build_year, images, rental_price, status, rating, rating_count, review_count, verified, fuel, mileage, gear, seats, NULL as engine_capacity, transmission_type, 'car' as vehicle_type
+          FROM cars
+          WHERE agency_id = $1
+          UNION ALL
+          SELECT bike_id as vehicle_id, brand, model, car_type, build_year, images, rental_price, status, rating, rating_count, review_count, verified, fuel, mileage, gear, 0 as seats, engine_capacity, NULL as transmission_type, 'bike' as vehicle_type
+          FROM bikes
+          WHERE agency_id = $1
      `
      }
      else {
           query = `
-          SELECT cars.*
-          FROM (( users
-          JOIN agencies ON users.user_id = agencies.owner_id)
-          JOIN cars ON agencies.agency_id = cars.agency_id)
-          WHERE users.user_id = $1
+          SELECT c.car_id as vehicle_id, c.brand, c.model, c.car_type, c.build_year, c.images, c.rental_price, c.status, c.rating, c.rating_count, c.review_count, c.verified, c.fuel, c.mileage, c.gear, c.seats, NULL as engine_capacity, c.transmission_type, 'car' as vehicle_type
+          FROM users u
+          JOIN agencies a ON u.user_id = a.owner_id
+          JOIN cars c ON a.agency_id = c.agency_id
+          WHERE u.user_id = $1
+          UNION ALL
+          SELECT b.bike_id as vehicle_id, b.brand, b.model, b.car_type, b.build_year, b.images, b.rental_price, b.status, b.rating, b.rating_count, b.review_count, b.verified, b.fuel, b.mileage, b.gear, 0 as seats, b.engine_capacity, NULL as transmission_type, 'bike' as vehicle_type
+          FROM users u
+          JOIN agencies a ON u.user_id = a.owner_id
+          JOIN bikes b ON a.agency_id = b.agency_id
+          WHERE u.user_id = $1
      `
      }
 
      try {
           const result = await pool.query(query, [id]);
-          
           res.json(result.rows);
      } catch (error) {
+          console.error("Error in showAgencyCars:", error);
           res.status(500).send(error.message);
      }
 }

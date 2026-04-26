@@ -56,10 +56,8 @@ app.use('/api/returnDamageRoutes', returnDamageRoutes);
 app.use('/api/reviewRoutes', reviewRoutes);
 app.use('/api/chatRoutes', chatRoutes);
 
-// Handle 404 - Route not found
 app.use(notFoundHandler);
 
-// Global error handler - must be last middleware
 app.use(errorHandler);
 
 module.exports = app;
