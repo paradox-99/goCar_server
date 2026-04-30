@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS public.booking_info
     cancelled_by text COLLATE pg_catalog."default",
     cancel_reason text COLLATE pg_catalog."default",
     cancelled_at timestamp with time zone,
+    agency_id character varying(20) COLLATE pg_catalog."default",
     CONSTRAINT booking_info_pkey PRIMARY KEY (booking_id)
 );
 

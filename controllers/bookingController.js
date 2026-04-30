@@ -1,11 +1,12 @@
 const pool = require('../config/db')
 const { generateBookingId } = require('./createIDs')
+const { sendBookingNotification } = require('../services/notificationService')
 
 const createBooking = async (req, res) => {
      const { vehicle_type, driver_cost, start_ts, end_ts, total_cost, total_rent_hours, user_id, vehicle_id, booking_purpose, estimated_destination, driver_id } = req.body;
 
      const booking_id = generateBookingId();
-     const status = 'Pending';
+     const status = 'Requested';
      const client = await pool.connect();      
 
      const query = `
@@ -36,7 +37,7 @@ const createBooking = async (req, res) => {
 
           const result = await client.query(query, [
                booking_id,
-               vehicle_type?.toLowerCase(),
+               vehicle_type,
                vehicle_id,
                start_ts,
                end_ts,
@@ -55,9 +56,9 @@ const createBooking = async (req, res) => {
           }
 
           // Update vehicle availability based on type
-          if (vehicle_type?.toLowerCase() === 'car') {
+          if (vehicle_type === 'Car') {
                await client.query(updateCarStatus, [vehicle_id]);
-          } else if (vehicle_type?.toLowerCase() === 'bike') {
+          } else if (vehicle_type === 'Bike') {
                await client.query(updateBikeStatus, [vehicle_id]);
           }
 
@@ -67,6 +68,16 @@ const createBooking = async (req, res) => {
           }
 
           await client.query('COMMIT');
+
+          // Trigger asynchronous notifications
+          sendBookingNotification({
+               vehicle_id,
+               driver_id,
+               booking_id,
+               start_ts,
+               end_ts
+          }).catch(err => console.error("Notification trigger error:", err));
+
           res.status(200).json({ message: 'Booking Created Successfully.', code: 1 });
      } catch (error) {
           await client.query('ROLLBACK');

@@ -172,6 +172,46 @@ const getAgencyBookingsByEmail = async (req, res) => {
      }
 }
 
+const getAgencyBookingsByAgencyId = async (req, res) => {
+     const { agencyId } = req.params;
+
+     // Validate agency ID
+     if (!agencyId || typeof agencyId !== 'string' || agencyId.trim() === '') {
+          return res.status(400).json({ error: 'Invalid agency ID' });
+     }
+     if (!agencyId.startsWith('AG-')) {
+          return res.status(400).json({ error: 'Agency ID must start with AG-' });
+     }
+
+     const query = `
+          SELECT 
+               bi.*,
+               COALESCE(c.brand, b.brand) AS brand,
+               COALESCE(c.model, b.model) AS model,
+               COALESCE(c.images, b.images) AS images,
+               COALESCE(c.car_type, b.car_type) AS car_type,
+               u.name AS user_name,
+               u.email AS user_email,
+               u.phone AS user_phone,
+               u.photo AS user_photo,
+               ag.agency_name
+          FROM booking_info bi
+          JOIN users u ON bi.user_id = u.user_id
+          JOIN agencies ag ON ag.agency_id = $1
+          LEFT JOIN cars c ON bi.vehicle_id = c.car_id AND LOWER(bi.vehicle_type::text) = 'car' AND c.agency_id = $1
+          LEFT JOIN bikes b ON bi.vehicle_id = b.bike_id AND LOWER(bi.vehicle_type::text) = 'bike' AND b.agency_id = $1
+          WHERE (c.agency_id = $1 OR b.agency_id = $1)
+          ORDER BY bi.booking_ts DESC
+     `
+     try {
+          const result = await pool.query(query, [agencyId.trim()]);
+          res.json(result.rows);
+     } catch (error) {
+          console.error('Error in getAgencyBookingsByAgencyId:', error);
+          res.status(500).json({ error: 'Internal server error' });
+     }
+}
+
 const updateAgencyOwnerInfo = asyncHandler(async (req, res) => {
      // Validate and sanitize the owner ID from params
      const ownerId = agencyValidator.validateOwnerId(req.params.id);
@@ -262,6 +302,7 @@ module.exports = {
      getAgencyActiveBookingCars,
      getAgencyBookings,
      getAgencyBookingsByEmail,
+     getAgencyBookingsByAgencyId,
      updateAgencyOwnerInfo,
      updateAgencyInfo,
      getAgencyByIdDetailed,

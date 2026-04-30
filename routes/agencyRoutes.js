@@ -1,6 +1,6 @@
 const express = require('express');
 const Router = express.Router();
-const { getAllAgency, getAgencyDetails, getAgencyOwner, getAllBookings, getAgencyProfile, getAgencyCarsByOwner, getAgencyBookingsByEmail, updateAgencyOwnerInfo, updateAgencyInfo, getAgencyByIdDetailed, getAdminStats } = require('../controllers/agencyController');
+const { getAllAgency, getAgencyDetails, getAgencyOwner, getAllBookings, getAgencyProfile, getAgencyCarsByOwner, getAgencyBookingsByEmail, getAgencyBookingsByAgencyId, updateAgencyOwnerInfo, updateAgencyInfo, getAgencyByIdDetailed, getAdminStats } = require('../controllers/agencyController');
 const { verifyToken, verifyAdmin, verifyAgency } = require('../config/jwt');
 
 Router.get('/getAllAgency', getAllAgency);
@@ -12,6 +12,7 @@ Router.get('/getAllBookings', verifyToken, verifyAgency, getAllBookings);
 Router.get('/getAgencyProfile/:email', verifyToken, verifyAgency, getAgencyProfile);
 Router.get('/getAgencyCarsByOwner/:email', verifyToken, verifyAgency, getAgencyCarsByOwner);
 Router.get('/getAgencyBookingsByEmail/:email', verifyToken, verifyAgency, getAgencyBookingsByEmail);
+Router.get('/getBookingsByAgencyId/:agencyId', verifyToken, verifyAgency, getAgencyBookingsByAgencyId);
 
 // Update agency owner information
 Router.patch('/updateOwnerInfo/:id', verifyToken, verifyAgency, updateAgencyOwnerInfo);

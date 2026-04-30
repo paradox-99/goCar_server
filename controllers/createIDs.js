@@ -43,6 +43,12 @@ function generateTransactionId() {
      return `${prefix}_${timestamp}${randomValue}`;
 }
 
+function generateNotificationId() {
+     const prefix = "NOTIF-";
+     const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000); // ensures uniqueness
+     return `${prefix}${uniqueNumber}`;
+}
+
 module.exports = {
      createUserId,
      createAddressId,
@@ -50,5 +56,6 @@ module.exports = {
      createDriverId,
      generatePaymentId,
      generateBookingId,
-     generateTransactionId
+     generateTransactionId,
+     generateNotificationId
 };
