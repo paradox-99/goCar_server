@@ -161,4 +161,52 @@ const getPaymentHistory = async (req, res) => {
      }
 }
 
-module.exports = { makePayment, paymentSuccess, getPaymentInfo, paymentFail, getPaymentHistory };
+const makeExistingBookingPayment = async (req, res) => {
+     let {
+          booking_id,
+          amount,
+          name,
+          email,
+          phone,
+          address
+     } = req.body;
+
+     const tran_id = generateTransactionId();
+
+     const data = {
+          total_amount: amount,
+          currency: 'BDT',
+          tran_id: tran_id,
+          success_url: `http://localhost:3000/api/paymentRoutes/payment/success/${tran_id}?booking_id=${booking_id}`,
+          fail_url: `http://localhost:3000/api/paymentRoutes/paymentFail/${tran_id}`,
+          cancel_url: `http://localhost:3000/api/paymentRoutes/paymentFail/${tran_id}`,
+          ipn_url: 'http://localhost:3030/ipn',
+          shipping_method: 'NO',
+          product_name: 'Rent Payment',
+          product_category: 'Rent',
+          product_profile: 'Rent',
+          cus_name: name,
+          cus_email: email,
+          cus_add1: address,
+          cus_country: 'Bangladesh',
+          cus_phone: phone
+     };
+
+     try {
+          const paymentId = generatePaymentId();
+          await pool.query(
+               `INSERT INTO payment_info (payment_id, booking_id, date, amount, method_type, trx_id, payment_for)
+               VALUES ($1,$2,now(),$3,'card',$4,'initial')`,
+               [paymentId, booking_id, amount, tran_id]
+          );
+
+          const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+          const apiResponse = await sslcz.init(data);
+          res.status(200).json({ url: apiResponse.GatewayPageURL, tran_id, booking_id });
+     } catch (error) {
+          console.error("Error in existing booking payment:", error);
+          res.status(500).send(error.message);
+     }
+}
+
+module.exports = { makePayment, makeExistingBookingPayment, paymentSuccess, getPaymentInfo, paymentFail, getPaymentHistory };

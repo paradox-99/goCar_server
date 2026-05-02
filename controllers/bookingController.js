@@ -1,6 +1,6 @@
 const pool = require('../config/db')
 const { generateBookingId } = require('./createIDs')
-const { sendBookingNotification } = require('../services/notificationService')
+const { sendBookingNotification, sendStatusUpdateNotification } = require('../services/notificationService')
 
 const createBooking = async (req, res) => {
      const { vehicle_type, driver_cost, start_ts, end_ts, total_cost, total_rent_hours, user_id, vehicle_id, booking_purpose, estimated_destination, driver_id } = req.body;
@@ -115,8 +115,8 @@ const getUserBookings = async (req, res) => {
                driver_info.rating as driver_rating, 
                driver_info.rental_price as driver_rental_price, 
                agadd.display_name as agency_address, 
-               driadd.display_name as driver_address
-          FROM booking_info
+               driadd.display_name as driver_address, u.name as user_name, u.email as user_email, u.phone as user_phone
+          FROM booking_info JOIN users u ON booking_info.user_id = u.user_id
           LEFT JOIN cars ON booking_info.vehicle_id = cars.car_id AND LOWER(booking_info.vehicle_type::text) = 'car'
           LEFT JOIN bikes ON booking_info.vehicle_id = bikes.bike_id AND LOWER(booking_info.vehicle_type::text) = 'bike'
           LEFT JOIN agencies ON COALESCE(cars.agency_id, bikes.agency_id) = agencies.agency_id
@@ -200,7 +200,10 @@ const cancelBooking = async (req, res) => {
 
           await client.query('COMMIT');
 
-          res.status(200).json({ message: 'Booking Cancelled Successfully.' });
+          // Trigger notification
+          sendStatusUpdateNotification(id, 'Cancelled').catch(err => console.error("Notification trigger error:", err));
+
+          res.status(200).json({ message: 'Booking Cancelled Successfully.', code: 1 });
      } catch (error) {
           console.log(error.message);
           
@@ -277,25 +280,54 @@ const updateBookingStatus = async (req, res) => {
           return res.status(400).json({ message: 'Status is required.' });
      }
 
-     const query = `
-          UPDATE booking_info
-          SET status = $2
-          WHERE booking_id = $1
-          RETURNING *
-     `;
-     
+     const client = await pool.connect();
+
      try {
-          const result = await pool.query(query, [id, status]);
+          await client.query('BEGIN');
+
+          const query = `
+               UPDATE booking_info
+               SET status = $2
+               WHERE booking_id = $1
+               RETURNING *
+          `;
+          
+          const result = await client.query(query, [id, status]);
           if (result.rowCount === 0) {
+               await client.query('ROLLBACK');
                return res.status(404).json({ message: 'Booking not found.' });
           }
+
+          const booking = result.rows[0];
+
+          // If status is updated to Cancelled or Completed, make vehicle and driver available again
+          if (status === 'Cancelled' || status === 'Completed') {
+               if (booking.vehicle_type === 'car') {
+                    await client.query("UPDATE cars SET status = 'Available' WHERE car_id = $1", [booking.vehicle_id]);
+               } else if (booking.vehicle_type === 'bike') {
+                    await client.query("UPDATE bikes SET status = 'Available' WHERE bike_id = $1", [booking.vehicle_id]);
+               }
+
+               if (booking.driver_id) {
+                    await client.query("UPDATE driver_info SET availability = true WHERE driver_id = $1", [booking.driver_id]);
+               }
+          }
+
+          await client.query('COMMIT');
+
+          // Trigger notification
+          sendStatusUpdateNotification(id, status).catch(err => console.error("Notification trigger error:", err));
+
           res.status(200).json({ 
                message: `Status updated to ${status} successfully.`, 
-               booking: result.rows[0] 
+               booking: booking
           });
      } catch (error) {
+          await client.query('ROLLBACK');
           console.error("Error updating booking status:", error);
           res.status(500).send(error.message);
+     } finally {
+          client.release();
      }
 }
 
