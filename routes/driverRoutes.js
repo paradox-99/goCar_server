@@ -1,6 +1,6 @@
 const express = require('express');
 const Router = express.Router();
-const { showAllDrivers, checkNID, checkPhone, checkLicense, createDriver, getDriverProfile, updateDriverAvailability, verifyDriverAccount, getAgencyDriversByEmail, adminGetAllDrivers, getDriverProfileById } = require('../controllers/drivercontroller');
+const { showAllDrivers, checkNID, checkPhone, checkLicense, createDriver, getDriverProfile, updateDriverAvailability, verifyDriverAccount, getAgencyDriversByEmail, adminGetAllDrivers, getDriverProfileById, updateDriverInfoAdmin } = require('../controllers/drivercontroller');
 const { verifyToken, verifyAdmin, verifyDriver, verifyAgency } = require('../config/jwt');
 
 Router.get('/admin-all-drivers', verifyToken, verifyAdmin, adminGetAllDrivers);
@@ -14,6 +14,7 @@ Router.get('/profile/:email', verifyToken, getDriverProfile);
 Router.get('/agencyDrivers/:email', verifyToken, verifyAgency, getAgencyDriversByEmail);
 Router.patch('/availability/:driverId', verifyToken, verifyDriver, updateDriverAvailability);
 Router.patch('/verify/:driverId', verifyToken, verifyAdmin, verifyDriverAccount);
+Router.patch('/updateDriverInfo/:driverId', verifyToken, verifyAdmin, updateDriverInfoAdmin);
 
 module.exports = Router;
 

@@ -16,6 +16,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const returnDamageRoutes = require('./routes/returnDamageRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const adminVehicleRoutes = require('./routes/adminVehicleRoutes');
 
 // Error handling middleware
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -55,6 +56,7 @@ app.use('/api/notificationRoutes', notificationRoutes);
 app.use('/api/returnDamageRoutes', returnDamageRoutes);
 app.use('/api/reviewRoutes', reviewRoutes);
 app.use('/api/chatRoutes', chatRoutes);
+app.use('/api/adminVehicleRoutes', adminVehicleRoutes);
 
 app.use(notFoundHandler);
 

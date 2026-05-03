@@ -261,6 +261,55 @@ const getDriverProfileById = async (req, res) => {
      }
 };
 
+const updateDriverInfoAdmin = async (req, res) => {
+     const { driverId } = req.params;
+     const { accountstatus, license_status, expire_date, verified, availability, rental_price, admin_note } = req.body;
+     
+     try {
+          let updateFields = [];
+          let queryValues = [];
+          let paramIndex = 1;
+
+          if (accountstatus !== undefined) {
+               updateFields.push(`accountstatus = $${paramIndex++}`);
+               queryValues.push(accountstatus);
+          }
+          if (license_status !== undefined) {
+               updateFields.push(`license_status = $${paramIndex++}`);
+               queryValues.push(license_status);
+          }
+          if (expire_date !== undefined) {
+               updateFields.push(`expire_date = $${paramIndex++}`);
+               queryValues.push(expire_date);
+          }
+          if (verified !== undefined) {
+               updateFields.push(`verified = $${paramIndex++}`);
+               queryValues.push(Boolean(verified));
+          }
+          if (availability !== undefined) {
+               updateFields.push(`availability = $${paramIndex++}`);
+               queryValues.push(Boolean(availability));
+          }
+          if (rental_price !== undefined) {
+               updateFields.push(`rental_price = $${paramIndex++}`);
+               queryValues.push(rental_price);
+          }
+          // Assuming admin_note is added or we just ignore it if it doesn't exist. The prompt asked to create an API to "update status and other relevant things". 
+
+          if (updateFields.length === 0) {
+               return res.status(400).json({ message: 'No fields to update' });
+          }
+
+          queryValues.push(driverId);
+          const query = `UPDATE driver_info SET ${updateFields.join(', ')} WHERE driver_id = $${paramIndex}`;
+
+          await pool.query(query, queryValues);
+          res.json({ message: 'Driver information updated successfully' });
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
 module.exports = {
      showAllDrivers,
      checkNID,
@@ -272,5 +321,6 @@ module.exports = {
      verifyDriverAccount,
      getAgencyDriversByEmail,
      adminGetAllDrivers,
-     getDriverProfileById
+     getDriverProfileById,
+     updateDriverInfoAdmin
 };
