@@ -331,8 +331,8 @@ const getFilteredUsers = async (req, res) => {
     }
 
     if (status && status !== "All") {
-        params.push(status.toLowerCase());
-        query += ` AND LOWER(u.accountstatus) = $${params.length}`;
+        params.push(status);
+        query += ` AND u.accountstatus = $${params.length}`;
     }
 
     if (verified && verified !== "All") {
