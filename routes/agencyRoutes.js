@@ -1,12 +1,36 @@
 const express = require('express');
 const Router = express.Router();
-const { getAllAgency, getAgencyDetails, getAgencyOwner, getAllBookings, getAgencyProfile, getAgencyCarsByOwner, getAgencyBookingsByEmail, getAgencyBookingsByAgencyId, updateAgencyOwnerInfo, updateAgencyInfo, getAgencyByIdDetailed, getAdminStats } = require('../controllers/agencyController');
+const { 
+    getAllAgency, 
+    getAgencyDetails, 
+    getAgencyOwner, 
+    getAllBookings, 
+    getAgencyProfile, 
+    getAgencyCarsByOwner, 
+    getAgencyBookingsByEmail, 
+    getAgencyBookingsByAgencyId, 
+    updateAgencyOwnerInfo, 
+    updateAgencyInfo, 
+    getAgencyByIdDetailed, 
+    getAdminStats,
+    getFilteredAgencies,
+    getAgencyAdminDetails,
+    updateAgencyAdminStatus,
+    getAgencyCities
+} = require('../controllers/agencyController');
 const { verifyToken, verifyAdmin, verifyAgency } = require('../config/jwt');
 
 Router.get('/getAllAgency', getAllAgency);
 Router.get('/admin-stats', verifyToken, verifyAdmin, getAdminStats);
 Router.get('/agency-by-id-detailed/:id', verifyToken, verifyAdmin, getAgencyByIdDetailed);
 Router.get('/getAgencyDetails/:id', verifyToken, getAgencyDetails);
+
+// Admin Agency Management
+Router.get('/admin/filtered', verifyToken, verifyAdmin, getFilteredAgencies);
+Router.get('/admin/details/:agencyId', verifyToken, verifyAdmin, getAgencyAdminDetails);
+Router.patch('/admin/update/:agencyId', verifyToken, verifyAdmin, updateAgencyAdminStatus);
+Router.get('/admin/cities', verifyToken, verifyAdmin, getAgencyCities);
+
 Router.get('/getAgencyOwner/:id', verifyToken, getAgencyOwner);
 Router.get('/getAllBookings', verifyToken, verifyAgency, getAllBookings);
 Router.get('/getAgencyProfile/:email', verifyToken, verifyAgency, getAgencyProfile);

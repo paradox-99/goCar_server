@@ -1,9 +1,28 @@
 const express = require('express');
 const Router = express.Router();
-const { showAllUsers, getUserRole, getUser, getBookings, checkNID, checkPhone, createUser, updateUserInfo, updateUserAddress, getUserById, getDashboardStats } = require('../controllers/userController');
+const { 
+    showAllUsers, 
+    getUserRole, 
+    getUser, 
+    getBookings, 
+    checkNID, 
+    checkPhone, 
+    createUser, 
+    updateUserInfo, 
+    updateUserAddress, 
+    getUserById, 
+    getDashboardStats,
+    getFilteredUsers,
+    getUserAdminDetails,
+    updateUserByAdmin
+} = require('../controllers/userController');
 const { verifyToken, verifyAdmin, verifyUser } = require('../config/jwt');
 
 Router.get('/users', verifyToken, verifyAdmin, showAllUsers)
+Router.get('/users/admin', verifyToken, verifyAdmin, getFilteredUsers)
+Router.get('/users/admin/details/:userId', verifyToken, verifyAdmin, getUserAdminDetails)
+Router.patch('/users/admin/update/:userId', verifyToken, verifyAdmin, updateUserByAdmin)
+
 Router.get('/user-by-id/:id', verifyToken, verifyAdmin, getUserById)
 Router.get('/getUserRole/:email', getUserRole)
 Router.get('/getUserInfo/:email', verifyToken, getUser)

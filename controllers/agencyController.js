@@ -292,6 +292,144 @@ const getAdminStats = async (req, res) => {
      }
 }
 
+const getFilteredAgencies = async (req, res) => {
+    const { search, status, verified, city, page = 0, limit = 8 } = req.query;
+    const offset = page * limit;
+
+    let query = `
+        SELECT ag.*, u.name as owner_name, ad.city, ad.display_name as full_address
+        FROM agencies ag
+        JOIN users u ON ag.owner_id = u.user_id
+        JOIN address ad ON ag.address_id = ad.address_id
+        WHERE 1=1
+    `;
+    const params = [];
+
+    if (search) {
+        params.push(`%${search}%`);
+        query += ` AND (ag.agency_name ILIKE $${params.length} OR ag.email ILIKE $${params.length} OR ag.phone_number ILIKE $${params.length})`;
+    }
+
+    if (status && status !== 'All') {
+        params.push(status); // Status is typically capitalized in DB based on enum
+        query += ` AND ag.status::text = $${params.length}`;
+    }
+
+    if (verified && verified !== 'All') {
+        params.push(verified === 'Yes');
+        query += ` AND ag.verified = $${params.length}`;
+    }
+
+    if (city && city !== 'All') {
+        params.push(city);
+        query += ` AND ad.city = $${params.length}`;
+    }
+
+    try {
+        // Total count
+        const countQuery = `SELECT COUNT(*) FROM (${query}) AS filtered`;
+        const countRes = await pool.query(countQuery, params);
+        const totalCount = parseInt(countRes.rows[0].count);
+
+        // Data with ordering and pagination
+        query += ` ORDER BY ag.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        const result = await pool.query(query, [...params, limit, offset]);
+
+        res.json({
+            agencies: result.rows,
+            totalCount
+        });
+    } catch (err) {
+        console.error("Error in getFilteredAgencies:", err);
+        res.status(500).send(err.message);
+    }
+};
+
+const getAgencyAdminDetails = async (req, res) => {
+    const { agencyId } = req.params;
+    try {
+        // 1. Basic Info & Documents & Owner Info
+        const infoQuery = `
+            SELECT ag.*, ad.city, ad.area, ad.display_name as full_address,
+                   u.name as owner_name, u.email as owner_email, u.phone as owner_phone, u.nid as owner_nid
+            FROM agencies ag
+            JOIN address ad ON ag.address_id = ad.address_id
+            JOIN users u ON ag.owner_id = u.user_id
+            WHERE ag.agency_id = $1
+        `;
+        const infoRes = await pool.query(infoQuery, [agencyId]);
+        if (infoRes.rowCount === 0) return res.status(404).json({ message: 'Agency not found' });
+
+        // 2. Fleet Info
+        const carsQuery = `SELECT car_id as id, brand, model, status, 'car' as type FROM cars WHERE agency_id = $1`;
+        const bikesQuery = `SELECT bike_id as id, brand, model, status, 'bike' as type FROM bikes WHERE agency_id = $1`;
+        const carsRes = await pool.query(carsQuery, [agencyId]);
+        const bikesRes = await pool.query(bikesQuery, [agencyId]);
+
+        // 3. Reviews
+        const reviewsQuery = `
+            SELECT ar.*, u.name as user_name
+            FROM agency_reviews ar
+            JOIN users u ON ar.user_id = u.user_id
+            WHERE ar.agency_id = $1
+            ORDER BY ar.date DESC
+        `;
+        const reviewsRes = await pool.query(reviewsQuery, [agencyId]);
+
+        res.json({
+            overview: infoRes.rows[0],
+            fleet: [...carsRes.rows, ...bikesRes.rows],
+            reviews: reviewsRes.rows
+        });
+    } catch (err) {
+        console.error("Error in getAgencyAdminDetails:", err);
+        res.status(500).send(err.message);
+    }
+};
+
+const updateAgencyAdminStatus = async (req, res) => {
+    const { agencyId } = req.params;
+    const { status, verified, expire_date, admin_note } = req.body;
+
+    try {
+        const query = `
+            UPDATE agencies
+            SET status = $1, verified = $2, expire_date = $3
+            WHERE agency_id = $4
+            RETURNING *
+        `;
+        const result = await pool.query(query, [status, verified, expire_date || null, agencyId]);
+        
+        if (result.rowCount === 0) return res.status(404).json({ message: 'Agency not found' });
+        
+        // If status is Active and verified is true, we might want to update user role to 'agency' if not already
+        if (status === 'Active' && verified === true) {
+            await pool.query(`UPDATE users SET userrole = 'agency' WHERE user_id = $1`, [result.rows[0].owner_id]);
+        }
+
+        res.json({ message: 'Agency updated successfully', agency: result.rows[0] });
+    } catch (err) {
+        console.error("Error in updateAgencyAdminStatus:", err);
+        res.status(500).send(err.message);
+    }
+};
+
+const getAgencyCities = async (req, res) => {
+    try {
+        const query = `
+            SELECT DISTINCT ad.city 
+            FROM address ad
+            JOIN agencies ag ON ad.address_id = ag.address_id
+            WHERE ad.city IS NOT NULL
+            ORDER BY ad.city
+        `;
+        const result = await pool.query(query);
+        res.json(result.rows.map(r => r.city));
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+};
+
 module.exports = { 
      getAllAgency, 
      getAgencyDetails, 
@@ -306,5 +444,9 @@ module.exports = {
      updateAgencyOwnerInfo,
      updateAgencyInfo,
      getAgencyByIdDetailed,
-     getAdminStats
+     getAdminStats,
+     getFilteredAgencies,
+     getAgencyAdminDetails,
+     updateAgencyAdminStatus,
+     getAgencyCities
 };

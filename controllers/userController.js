@@ -313,4 +313,127 @@ const getDashboardStats = asyncHandler(async (req, res) => {
      });
 });
 
-module.exports = { showAllUsers, getUserRole, getUser, getBookings, createUser, checkNID, checkPhone, updateUserInfo, updateUserAddress, getUserById, getDashboardStats };
+const getFilteredUsers = async (req, res) => {
+    const { search, status, verified, role, page = 0, limit = 10 } = req.query;
+    const offset = page * limit;
+
+    let query = `
+        SELECT u.*, a.display_name as address, a.city, a.area
+        FROM users u
+        JOIN address a ON u.address_id = a.address_id
+        WHERE 1=1
+    `;
+    const params = [];
+
+    if (search) {
+        params.push(`%${search}%`);
+        query += ` AND (u.name ILIKE $${params.length} OR u.email ILIKE $${params.length} OR u.phone ILIKE $${params.length})`;
+    }
+
+    if (status && status !== "All") {
+        params.push(status.toLowerCase());
+        query += ` AND LOWER(u.accountstatus) = $${params.length}`;
+    }
+
+    if (verified && verified !== "All") {
+        const verifiedBool = verified === "Yes";
+        params.push(verifiedBool);
+        query += ` AND u.verified = $${params.length}`;
+    }
+
+    if (role && role !== "All") {
+        const roleMap = {
+            "Customer": "user",
+            "Agency Owner": "agency",
+            "Admin": "admin"
+        };
+        params.push(roleMap[role] || role.toLowerCase());
+        query += ` AND u.userrole = $${params.length}`;
+    }
+
+    try {
+        const countQuery = `SELECT COUNT(*) FROM (${query}) AS filtered_users`;
+        const totalCountResult = await pool.query(countQuery, params);
+        const totalCount = parseInt(totalCountResult.rows[0].count);
+
+        const resultQuery = query + ` ORDER BY u.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        const result = await pool.query(resultQuery, [...params, limit, offset]);
+        
+        res.json({
+            users: result.rows,
+            totalCount
+        });
+    } catch (err) {
+        console.error("Error fetching filtered users:", err);
+        res.status(500).send(err.message);
+    }
+};
+
+const getUserAdminDetails = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const profileQuery = `
+            SELECT u.*, a.*
+            FROM users u
+            JOIN address a ON u.address_id = a.address_id
+            WHERE u.user_id = $1
+        `;
+        const profileResult = await pool.query(profileQuery, [userId]);
+        if (profileResult.rowCount === 0) return res.status(404).json({ message: "User not found" });
+
+        const bookingsQuery = `
+            SELECT b.*, COALESCE(c.brand, bk.brand) as brand, COALESCE(c.model, bk.model) as model
+            FROM booking_info b
+            LEFT JOIN cars c ON b.vehicle_id = c.car_id AND b.vehicle_type = 'Car'
+            LEFT JOIN bikes bk ON b.vehicle_id = bk.bike_id AND b.vehicle_type = 'Bike'
+            WHERE b.user_id = $1
+            ORDER BY b.booking_ts DESC
+            LIMIT 5
+        `;
+        const bookingsResult = await pool.query(bookingsQuery, [userId]);
+
+        const statsQuery = `
+            SELECT 
+                COUNT(*) as total_bookings,
+                COUNT(CASE WHEN status = 'Cancelled' THEN 1 END) as cancellation_count,
+                (SELECT COUNT(*) FROM damage_reports dr JOIN booking_info bi ON dr.booking_id = bi.booking_id WHERE bi.user_id = $1) as damage_reports_count
+            FROM booking_info
+            WHERE user_id = $1
+        `;
+        const statsResult = await pool.query(statsQuery, [userId]);
+
+        res.json({
+            profile: profileResult.rows[0],
+            bookings: bookingsResult.rows,
+            activity: statsResult.rows[0]
+        });
+
+    } catch (err) {
+        console.error("Error fetching admin user details:", err);
+        res.status(500).send(err.message);
+    }
+};
+
+const updateUserByAdmin = async (req, res) => {
+    const { userId } = req.params;
+    const { accountstatus, userrole, verified } = req.body;
+
+    const query = `
+        UPDATE users
+        SET accountstatus = $1, userrole = $2, verified = $3
+        WHERE user_id = $4
+        RETURNING *
+    `;
+
+    try {
+        const result = await pool.query(query, [accountstatus, userrole, verified, userId]);
+        if (result.rowCount === 0) return res.status(404).json({ message: "User not found" });
+        res.json({ message: "User updated successfully", user: result.rows[0] });
+    } catch (err) {
+        console.error("Error updating user by admin:", err);
+        res.status(500).send(err.message);
+    }
+};
+
+module.exports = { showAllUsers, getUserRole, getUser, getBookings, createUser, checkNID, checkPhone, updateUserInfo, updateUserAddress, getUserById, getDashboardStats, getFilteredUsers, getUserAdminDetails, updateUserByAdmin };
