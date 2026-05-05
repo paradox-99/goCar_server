@@ -242,8 +242,10 @@ CREATE TABLE IF NOT EXISTS public.notifications
     notif_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
     user_id character varying(20) COLLATE pg_catalog."default",
     message text COLLATE pg_catalog."default",
-    created_at date,
-    is_read boolean,
+    created_at timestamp with time zone DEFAULT now(),
+    is_read boolean DEFAULT false,
+    category character varying(20) DEFAULT 'individual', -- individual, broadcast, group
+    batch_id character varying(20), -- to group notifications sent together
     CONSTRAINT notifications_pkey PRIMARY KEY (notif_id)
 );
 
