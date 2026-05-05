@@ -423,4 +423,294 @@ const checkAvailability = async (req, res) => {
      }
 }
 
-module.exports = { createBooking, getUserBookings, cancelBooking, getCarBookings, updateBookingStatus, getDriverBookings, getBookingById, checkAvailability }
+const getAdminFilteredBookings = async (req, res) => {
+    const { 
+        search, status, vehicle_type, 
+        created_start, created_end, 
+        trip_start, trip_end,
+        payment_status, driver_status, cancelled_by,
+        quick_filter,
+        page = 0, limit = 8 
+    } = req.query;
+    
+    const offset = page * limit;
+    let params = [];
+    let whereClauses = [];
+
+    // Quick Filters Logic
+    if (quick_filter) {
+        switch (quick_filter) {
+            case 'Today':
+                whereClauses.push(`b.booking_ts::date = current_date`);
+                break;
+            case 'Week':
+                whereClauses.push(`b.booking_ts >= current_date - interval '7 days'`);
+                break;
+            case 'Unpaid':
+                whereClauses.push(`(b.initial_payment = false OR b.final_payment = false)`);
+                break;
+            case 'WithDriver':
+                whereClauses.push(`b.driver_id IS NOT NULL`);
+                break;
+            case 'CancelledByUser':
+                whereClauses.push(`b.cancelled_by = 'User'`);
+                break;
+            case 'CancelledByAgency':
+                whereClauses.push(`b.cancelled_by = 'Agency'`);
+                break;
+            case 'CancelledByAdmin':
+                whereClauses.push(`b.cancelled_by = 'Admin'`);
+                break;
+            case 'HasDamage':
+                whereClauses.push(`EXISTS (SELECT 1 FROM damage_reports dr WHERE dr.booking_id = b.booking_id)`);
+                break;
+            case 'Overdue':
+                whereClauses.push(`(b.status = 'Overdue' OR (b.status IN ('Running', 'Confirmed') AND b.end_ts < now()))`);
+                break;
+        }
+    }
+
+    if (search) {
+        params.push(`%${search}%`);
+        const pIdx = params.length;
+        whereClauses.push(`(
+            b.booking_id ILIKE $${pIdx} OR 
+            u.name ILIKE $${pIdx} OR 
+            c.brand ILIKE $${pIdx} OR c.model ILIKE $${pIdx} OR
+            bk.brand ILIKE $${pIdx} OR bk.model ILIKE $${pIdx}
+        )`);
+    }
+
+    if (status && status !== 'All') {
+        params.push(status);
+        whereClauses.push(`b.status = $${params.length}`);
+    }
+
+    if (vehicle_type) {
+        params.push(vehicle_type);
+        whereClauses.push(`b.vehicle_type = $${params.length}`);
+    }
+
+    if (created_start && created_end) {
+        params.push(created_start, created_end);
+        whereClauses.push(`b.booking_ts::date BETWEEN $${params.length - 1} AND $${params.length}`);
+    }
+
+    if (trip_start && trip_end) {
+        params.push(trip_start, trip_end);
+        whereClauses.push(`b.start_ts >= $${params.length - 1} AND b.end_ts <= $${params.length}`);
+    }
+
+    if (payment_status && payment_status !== 'All') {
+        if (payment_status === 'Initial Paid') whereClauses.push(`b.initial_payment = true`);
+        else if (payment_status === 'Initial Not Paid') whereClauses.push(`b.initial_payment = false`);
+        else if (payment_status === 'Final Paid') whereClauses.push(`b.final_payment = true`);
+        else if (payment_status === 'Final Not Paid') whereClauses.push(`b.final_payment = false`);
+        else if (payment_status === 'Fully Paid') whereClauses.push(`b.initial_payment = true AND b.final_payment = true`);
+    }
+
+    if (driver_status && driver_status !== 'All') {
+        if (driver_status === 'With Driver') whereClauses.push(`b.driver_id IS NOT NULL`);
+        else if (driver_status === 'Without Driver') whereClauses.push(`b.driver_id IS NULL`);
+    }
+
+    if (cancelled_by && cancelled_by !== 'All') {
+        params.push(cancelled_by);
+        whereClauses.push(`b.cancelled_by = $${params.length}`);
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    const query = `
+        SELECT 
+            b.*, 
+            u.name as user_name, u.phone as user_phone,
+            COALESCE(c.brand, bk.brand) as brand, 
+            COALESCE(c.model, bk.model) as model, 
+            COALESCE(c.images, bk.images) as images,
+            ag.agency_name,
+            d.name as driver_name,
+            (SELECT COUNT(*) FROM damage_reports dr WHERE dr.booking_id = b.booking_id) as damage_count
+        FROM booking_info b
+        LEFT JOIN users u ON b.user_id = u.user_id
+        LEFT JOIN cars c ON b.vehicle_id = c.car_id AND b.vehicle_type = 'Car'
+        LEFT JOIN bikes bk ON b.vehicle_id = bk.bike_id AND b.vehicle_type = 'Bike'
+        LEFT JOIN agencies ag ON COALESCE(c.agency_id, bk.agency_id) = ag.agency_id
+        LEFT JOIN driver_info d ON b.driver_id = d.driver_id
+        ${whereSql}
+        ORDER BY b.booking_ts DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `;
+
+    const countQuery = `
+        SELECT COUNT(*) 
+        FROM booking_info b
+        LEFT JOIN users u ON b.user_id = u.user_id
+        LEFT JOIN cars c ON b.vehicle_id = c.car_id AND b.vehicle_type = 'Car'
+        LEFT JOIN bikes bk ON b.vehicle_id = bk.bike_id AND b.vehicle_type = 'Bike'
+        ${whereSql}
+    `;
+
+    try {
+        const countRes = await pool.query(countQuery, params);
+        const totalCount = parseInt(countRes.rows[0].count);
+        const result = await pool.query(query, [...params, limit, offset]);
+
+        res.json({
+            bookings: result.rows,
+            totalCount
+        });
+    } catch (error) {
+        console.error("Error in getAdminFilteredBookings:", error);
+        res.status(500).send(error.message);
+    }
+};
+
+const getAdminBookingStats = async (req, res) => {
+    const { vehicle_type } = req.query;
+    try {
+        const query = `
+            SELECT 
+                COUNT(*) as total_bookings,
+                COUNT(CASE WHEN b.status = 'Running' THEN 1 END) as running,
+                COUNT(CASE WHEN b.status = 'Requested' THEN 1 END) as requested,
+                COUNT(CASE WHEN b.status = 'Confirmed' THEN 1 END) as confirmed,
+                COUNT(CASE WHEN b.status = 'Completed' THEN 1 END) as completed,
+                COUNT(CASE WHEN b.status = 'Cancelled' THEN 1 END) as cancelled,
+                COUNT(CASE WHEN b.status = 'Overdue' OR (b.status IN ('Running', 'Confirmed') AND b.end_ts < now()) THEN 1 END) as overdue,
+                COUNT(CASE WHEN b.status = 'Cancelled' AND b.cancelled_by = 'User' THEN 1 END) as cancelled_by_user,
+                COUNT(CASE WHEN b.status = 'Cancelled' AND b.cancelled_by = 'Agency' THEN 1 END) as cancelled_by_agency,
+                COUNT(CASE WHEN b.status = 'Cancelled' AND b.cancelled_by = 'Admin' THEN 1 END) as cancelled_by_admin,
+                SUM(CASE WHEN b.status = 'Completed' THEN b.total_cost ELSE 0 END) as total_revenue
+            FROM booking_info b
+            LEFT JOIN users u ON b.user_id = u.user_id
+            WHERE b.vehicle_type = $1
+        `;
+        const result = await pool.query(query, [vehicle_type]);
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error("Error in getAdminBookingStats:", error);
+        res.status(500).send(error.message);
+    }
+};
+
+const getAdminBookingDetails = async (req, res) => {
+    const { id } = req.params;
+    try {
+        // 1. Overview, Customer, Driver, Vehicle
+        const mainQuery = `
+            SELECT 
+                b.*, 
+                u.name as user_name, u.email as user_email, u.phone as user_phone, u.photo as user_photo, u.accountstatus as user_status, u.verified as user_verified,
+                COALESCE(c.brand, bk.brand) as brand, COALESCE(c.model, bk.model) as model, COALESCE(c.images, bk.images) as images,
+                COALESCE(c.rental_price, bk.rental_price) as rental_price,
+                c.seats, c.transmission_type, c.fuel, c.car_features,
+                bk.engine_capacity, bk.helmet_count, bk.abs, bk.disk_brake, bk.engine_start_type,
+                ag.agency_name, ag.agency_id,
+                d.name as driver_name, d.phone as driver_phone, d.email as driver_email, d.photo as driver_photo, 
+                d.license_status, d.rating as driver_rating
+            FROM booking_info b
+            JOIN users u ON b.user_id = u.user_id
+            LEFT JOIN cars c ON b.vehicle_id = c.car_id AND b.vehicle_type = 'Car'
+            LEFT JOIN bikes bk ON b.vehicle_id = bk.bike_id AND b.vehicle_type = 'Bike'
+            LEFT JOIN agencies ag ON COALESCE(c.agency_id, bk.agency_id) = ag.agency_id
+            LEFT JOIN driver_info d ON b.driver_id = d.driver_id
+            WHERE b.booking_id = $1
+        `;
+        const mainRes = await pool.query(mainQuery, [id]);
+        if (mainRes.rowCount === 0) return res.status(404).json({ message: 'Booking not found' });
+
+        // 2. Pickup Info
+        const pickupRes = await pool.query(`SELECT * FROM pickup_info WHERE booking_id = $1`, [id]);
+
+        // 3. Return Info
+        const returnRes = await pool.query(`SELECT * FROM return_info WHERE booking_id = $1`, [id]);
+
+        // 4. Payments
+        const paymentsRes = await pool.query(`SELECT * FROM payment_info WHERE booking_id = $1 ORDER BY payment_ts DESC`, [id]);
+
+        // 5. Damage Reports
+        const damageRes = await pool.query(`
+            SELECT dr.*, u.name as reported_by_name 
+            FROM damage_reports dr 
+            JOIN users u ON dr.reported_by = u.user_id 
+            WHERE dr.booking_id = $1
+        `, [id]);
+
+        res.json({
+            overview: mainRes.rows[0],
+            pickup: pickupRes.rows[0] || null,
+            return: returnRes.rows[0] || null,
+            payments: paymentsRes.rows,
+            damages: damageRes.rows
+        });
+    } catch (error) {
+        console.error("Error in getAdminBookingDetails:", error);
+        res.status(500).send(error.message);
+    }
+};
+
+const updateAdminBooking = async (req, res) => {
+    const { id } = req.params;
+    const { status, initial_payment, final_payment, driver_id, admin_note } = req.body;
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Get current booking info
+        const currentRes = await client.query(`SELECT status, vehicle_id, vehicle_type, driver_id FROM booking_info WHERE booking_id = $1`, [id]);
+        const current = currentRes.rows[0];
+
+        // 2. Update booking_info
+        const updateQuery = `
+            UPDATE booking_info
+            SET status = $1, initial_payment = $2, final_payment = $3, driver_id = $4
+            WHERE booking_id = $5
+            RETURNING *
+        `;
+        const result = await client.query(updateQuery, [status, initial_payment, final_payment, driver_id, id]);
+
+        // 3. Handle availability if status changed to Cancelled/Completed
+        if ((status === 'Cancelled' || status === 'Completed') && (current.status !== 'Cancelled' && current.status !== 'Completed')) {
+            if (current.vehicle_type === 'Car') {
+                await client.query("UPDATE cars SET status = 'Available' WHERE car_id = $1", [current.vehicle_id]);
+            } else if (current.vehicle_type === 'Bike') {
+                await client.query("UPDATE bikes SET status = 'Available' WHERE bike_id = $1", [current.vehicle_id]);
+            }
+            if (current.driver_id) {
+                await client.query("UPDATE driver_info SET availability = true WHERE driver_id = $1", [current.driver_id]);
+            }
+        }
+
+        // 4. Handle driver change (if driver was reassigned)
+        if (driver_id !== current.driver_id) {
+            if (current.driver_id) await client.query("UPDATE driver_info SET availability = true WHERE driver_id = $1", [current.driver_id]);
+            if (driver_id) await client.query("UPDATE driver_info SET availability = false WHERE driver_id = $1", [driver_id]);
+        }
+
+        await client.query('COMMIT');
+        res.json({ message: 'Booking updated successfully', booking: result.rows[0] });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error("Error in updateAdminBooking:", error);
+        res.status(500).send(error.message);
+    } finally {
+        client.release();
+    }
+};
+
+module.exports = { 
+    createBooking, 
+    getUserBookings, 
+    cancelBooking, 
+    getCarBookings, 
+    updateBookingStatus, 
+    getDriverBookings, 
+    getBookingById, 
+    checkAvailability,
+    getAdminFilteredBookings,
+    getAdminBookingStats,
+    getAdminBookingDetails,
+    updateAdminBooking
+}
