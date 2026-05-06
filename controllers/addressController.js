@@ -7,7 +7,7 @@ const HTTP_STATUS = require('../constants/httpStatus');
 const updateAddressById = asyncHandler(async (req, res) => {
 
      
-     console.log(req.body);
+
      // Validate address ID
      const addressId = addressValidator.validateAddressId(req.params.addressId);
      

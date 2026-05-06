@@ -36,7 +36,6 @@ const bikeDetails = async (req, res) => {
           const result = await pool.query(query, [id]);
           res.json(result.rows[0]);
      } catch (error) {
-          console.log(error.message);
           res.status(500).send(error.message);
      }
 }

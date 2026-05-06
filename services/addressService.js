@@ -66,9 +66,6 @@ const addressService = {
           // Add addressId as the last parameter
           values.push(addressId);
 
-          console.log(values);
-          
-
           const updateQuery = `
                UPDATE address
                SET ${setClauses.join(', ')}

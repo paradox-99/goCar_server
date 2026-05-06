@@ -37,8 +37,6 @@ const showAllDrivers = async (req, res) => {
                const result = await pool.query(query, [userLon, userLat]);
                res.json(result.rows);
           } catch (err) {
-               console.log(err.message);
-
                res.status(500).send(err.message);
           }
      }

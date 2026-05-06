@@ -6,9 +6,6 @@ const pool = require('../config/db');
 Router.post("/jwt", async (req, res) => {
     const { email } = req.body;
 
-    console.log(email);
-    
-
     const query = `
         SELECT user_id AS id, userrole::text, email
         FROM users

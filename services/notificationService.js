@@ -34,7 +34,6 @@ const sendEmail = async (toEmail, toName, subject, textPart, htmlPart) => {
                     }
                 ]
             });
-        console.log(`Email sent to ${toEmail}`);
         return result;
     } catch (error) {
         console.error('Mailjet Error:', error.message || error);
@@ -53,7 +52,6 @@ const createNotification = async (userId, message) => {
     `;
     try {
         await pool.query(query, [notif_id, userId, message]);
-        console.log(`Notification created for user ${userId}`);
     } catch (error) {
         console.error('Notification Error:', error.message);
     }

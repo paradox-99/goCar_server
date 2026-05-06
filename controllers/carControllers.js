@@ -154,8 +154,6 @@ const carsByQuery = async (req, res) => {
           const result = await pool.query(query, [userLon, userLat, untilTs]);
           res.json(result.rows);
      } catch (error) {
-          console.log(error); 
-          
           res.status(500).send(error.message);
      }
 }
@@ -210,7 +208,6 @@ const carDetails = async (req, res) => {
           const result = await pool.query(query, [id]);
           res.json(result.rows[0]);
      } catch (error) {
-          console.log(error.message);
           res.status(500).send(error.message);
      }
 }
@@ -231,7 +228,6 @@ const showAllCars = async (req, res) => {
 
 const getCarReviews = async (req, res) => {
      const id = req.params.id;
-     console.log(id);
      
      let query = `
           SELECT cr.*, u.name, u.photo
@@ -243,8 +239,6 @@ const getCarReviews = async (req, res) => {
           const result = await pool.query(query, [id]);
           res.json(result.rows);
      } catch (error) {
-          console.log(error);
-          
           res.status(500).send(error.message);
      }
 }

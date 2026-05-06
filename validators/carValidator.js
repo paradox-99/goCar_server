@@ -53,9 +53,6 @@ const carValidator = {
                documentation
           } = data;
 
-          console.log(data);
-          
-
           const errors = [];
 
           if (!agency_id || typeof agency_id !== 'string') {

@@ -81,7 +81,6 @@ const createBooking = async (req, res) => {
           res.status(200).json({ message: 'Booking Created Successfully.', code: 1 });
      } catch (error) {
           await client.query('ROLLBACK');
-          console.log(error.message);
           res.status(500).send(error.message);
      } finally {
           client.release();
@@ -137,7 +136,6 @@ const getUserBookings = async (req, res) => {
 const cancelBooking = async (req, res) => {
      const id = req.params.id;
      const { cancelledBy, cancelReason } = req.body;
-     console.log(id, cancelledBy, cancelReason);
      const client = await pool.connect();         
 
      
@@ -205,8 +203,6 @@ const cancelBooking = async (req, res) => {
 
           res.status(200).json({ message: 'Booking Cancelled Successfully.', code: 1 });
      } catch (error) {
-          console.log(error.message);
-          
           await client.query('ROLLBACK');
           res.status(500).send(error.message);
      } finally {

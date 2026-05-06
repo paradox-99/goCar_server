@@ -52,9 +52,6 @@ const getAdminReviewsList = async (req, res) => {
     const { type, page = 1, limit = 10, search = '', rating, ratingRange, hasReviewText, quickFilter, start, end } = req.query;
     const offset = (page - 1) * limit;
 
-    console.log(req.query);
-    
-
     let query = '';
     let countQuery = '';
     let values = [];
