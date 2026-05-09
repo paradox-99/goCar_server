@@ -18,6 +18,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const adminVehicleRoutes = require('./routes/adminVehicleRoutes');
 const licenseRoutes = require('./routes/licenseRoutes');
+const adminVerificationRoutes = require('./routes/adminVerificationRoutes');
 
 // Error handling middleware
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -59,6 +60,7 @@ app.use('/api/reviewRoutes', reviewRoutes);
 app.use('/api/chatRoutes', chatRoutes);
 app.use('/api/adminVehicleRoutes', adminVehicleRoutes);
 app.use('/api/licenseRoutes', licenseRoutes);
+app.use('/api/verification', adminVerificationRoutes);
 
 app.use(notFoundHandler);
 
