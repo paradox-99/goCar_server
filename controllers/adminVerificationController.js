@@ -4,7 +4,7 @@ const getVerificationStats = async (req, res) => {
     try {
         const statsQuery = `
             SELECT 
-                (SELECT COUNT(*) FROM agencies WHERE status = 'pending') as pending_agencies,
+                (SELECT COUNT(*) FROM agencies WHERE status = 'Pending') as pending_agencies,
                 (SELECT COUNT(*) FROM driver_info WHERE verified = false) as pending_drivers,
                 (SELECT COUNT(*) FROM cars WHERE verified = false) as pending_cars,
                 (SELECT COUNT(*) FROM bikes WHERE verified = false) as pending_bikes,
@@ -54,7 +54,7 @@ const getVerificationList = async (req, res) => {
             countQuery = `SELECT COUNT(*) FROM agencies ag JOIN users u ON ag.owner_id = u.user_id JOIN address ad ON ag.address_id = ad.address_id`;
             
             if (pendingOnly === 'true') {
-                whereClauses.push("ag.status = 'pending'");
+                whereClauses.push("ag.status = 'Pending'");
             } else if (status && status !== 'All') {
                 params.push(status);
                 whereClauses.push(`ag.status = $${params.length}`);
