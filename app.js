@@ -63,8 +63,9 @@ app.use('/api/chatRoutes', chatRoutes);
 app.use('/api/adminVehicleRoutes', adminVehicleRoutes);
 app.use('/api/licenseRoutes', licenseRoutes);
 app.use('/api/verification', adminVerificationRoutes);
-app.use('/api/analytics', adminAnalyticsRoutes);
-app.use('/api/admin-settings', adminSettingsRoutes);
+app.use('/api/admin-analytics', require('./routes/adminAnalyticsRoutes'));
+app.use('/api/admin-settings', require('./routes/adminSettingsRoutes'));
+app.use('/api/admin-damage', require('./routes/adminDamageRoutes'));
 
 app.use(notFoundHandler);
 
