@@ -117,7 +117,7 @@ const checkLicense = async (req, res) => {
 }
 
 const createDriver = async (req, res) => {
-     const { address, area, name, email, phone, gender, nid, birthdate, profilePicture, licenseNumber, licenseIssueDate, issuingAuthority, experience, hiringPrice } = req.body;
+     const { address, area, name, email, phone, gender, nid, birthdate, profilePicture, licenseNumber, licenseIssueDate, issuingAuthority, experience, hiringPrice, agency_id } = req.body;
 
      const driverId = createDriverId();
      const addressId = createAddressId();
@@ -142,12 +142,12 @@ const createDriver = async (req, res) => {
           const result = await pool.query(addressQuery, [addressId, city, locality, postcode, latitude, longitude, displayName]);
           if (result.rowCount === 1) {
                const userQuery = `
-               INSERT INTO driver_info (driver_id, address_id, name, email, phone, gender, nid, dob, photo, availability, verified, accountstatus, license_number, license_status, expire_date, experience_year, rental_price)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+               INSERT INTO driver_info (driver_id, address_id, name, email, phone, gender, nid, dob, photo, availability, verified, accountstatus, license_number, license_status, expire_date, experience_year, rental_price, agency_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
                `;
 
                try {
-                    const userResult = await pool.query(userQuery, [driverId, addressId, name, email, phone, gender, nid, birthdate, profilePicture, availability, verified, accountStatus, licenseNumber, license_status, licenseIssueDate, experience, hiringPrice]);
+                    const userResult = await pool.query(userQuery, [driverId, addressId, name, email, phone, gender, nid, birthdate, profilePicture, availability, verified, accountStatus, licenseNumber, license_status, licenseIssueDate, experience, hiringPrice, agency_id || null]);
                     if (userResult.rowCount === 1) {
                          return res.status(201).json({ message: 'User account created successfully', code: 1 });
                     } else {
@@ -308,6 +308,32 @@ const updateDriverInfoAdmin = async (req, res) => {
      }
 };
 
+const suspendDriver = async (req, res) => {
+     const { driverId } = req.params;
+     try {
+          await pool.query(
+               `UPDATE driver_info SET accountstatus = 'Suspended' WHERE driver_id = $1`,
+               [driverId]
+          );
+          res.json({ message: 'Driver suspended successfully' });
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+const removeFromAgency = async (req, res) => {
+     const { driverId } = req.params;
+     try {
+          await pool.query(
+               `UPDATE driver_info SET agency_id = NULL WHERE driver_id = $1`,
+               [driverId]
+          );
+          res.json({ message: 'Driver removed from agency successfully' });
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
 module.exports = {
      showAllDrivers,
      checkNID,
@@ -320,5 +346,7 @@ module.exports = {
      getAgencyDriversByEmail,
      adminGetAllDrivers,
      getDriverProfileById,
-     updateDriverInfoAdmin
+     updateDriverInfoAdmin,
+     suspendDriver,
+     removeFromAgency
 };
