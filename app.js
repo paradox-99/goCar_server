@@ -68,6 +68,8 @@ app.use('/api/admin-settings', require('./routes/adminSettingsRoutes'));
 app.use('/api/admin-damage', require('./routes/adminDamageRoutes'));
 app.use('/api/agencyDamage', require('./routes/agencyDamageRoutes'));
 app.use('/api/agencyDashboard', require('./routes/agencyDashboardRoutes'));
+app.use('/api/admin-dashboard', require('./routes/adminDashboardRoutes'));
+app.use('/api/driverProfile', require('./routes/driverProfileRoutes'));
 
 app.use(notFoundHandler);
 
