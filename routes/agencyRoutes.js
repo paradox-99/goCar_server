@@ -1,23 +1,31 @@
 const express = require('express');
 const Router = express.Router();
-const { 
-    getAllAgency, 
-    getAgencyDetails, 
-    getAgencyOwner, 
-    getAllBookings, 
-    getAgencyProfile, 
-    getAgencyCarsByOwner, 
-    getAgencyBookingsByEmail, 
-    getAgencyBookingsByAgencyId, 
-    updateAgencyOwnerInfo, 
-    updateAgencyInfo, 
-    getAgencyByIdDetailed, 
+const {
+    getAllAgency,
+    getAgencyDetails,
+    getAgencyOwner,
+    getAllBookings,
+    getAgencyProfile,
+    getAgencyCarsByOwner,
+    getAgencyBookingsByEmail,
+    getAgencyBookingsByAgencyId,
+    updateAgencyOwnerInfo,
+    updateAgencyInfo,
+    getAgencyByIdDetailed,
     getAdminStats,
     getFilteredAgencies,
     getAgencyAdminDetails,
     updateAgencyAdminStatus,
     getAgencyCities
 } = require('../controllers/agencyController');
+const {
+    getAgencyReviewStats,
+    getAgencyVehicleReviews,
+    getAgencyVehicleSummary,
+    getAgencyReviews,
+    getAgencyDriverReviews,
+    getAgencyDriverSummary
+} = require('../controllers/agencyReviewController');
 const { verifyToken, verifyAdmin, verifyAgency } = require('../config/jwt');
 
 Router.get('/getAllAgency', getAllAgency);
@@ -43,5 +51,13 @@ Router.patch('/updateOwnerInfo/:id', verifyToken, verifyAgency, updateAgencyOwne
 
 // Update agency information
 Router.patch('/updateAgencyInfo/:id', verifyToken, verifyAgency, updateAgencyInfo);
+
+// Agency Review Dashboard Routes
+Router.get('/reviews/stats/:agencyId', verifyToken, verifyAgency, getAgencyReviewStats);
+Router.get('/reviews/vehicles/:agencyId', verifyToken, verifyAgency, getAgencyVehicleReviews);
+Router.get('/reviews/vehicle-summary/:agencyId', verifyToken, verifyAgency, getAgencyVehicleSummary);
+Router.get('/reviews/agency/:agencyId', verifyToken, verifyAgency, getAgencyReviews);
+Router.get('/reviews/drivers/:agencyId', verifyToken, verifyAgency, getAgencyDriverReviews);
+Router.get('/reviews/driver-summary/:agencyId', verifyToken, verifyAgency, getAgencyDriverSummary);
 
 module.exports = Router
