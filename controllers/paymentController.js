@@ -2,37 +2,29 @@ const pool = require('../config/db')
 const SSLCommerzPayment = require('sslcommerz-lts');
 const { generateTransactionId, generateBookingId, generatePaymentId } = require('./createIDs');
 
-const store_id = process.env.STORE_ID
-const store_passwd = process.env.STORE_PASS
+const store_id = process.env.GOCAR_SSLCOMMERZ_STORE_ID
+const store_passwd = process.env.GOCAR_SSLCOMMERZ_STORE_PASSWORD
 const is_live = false //true for live, false for sandbox
 
 const makePayment = async (req, res) => {
-     let {
-          user_id,
-          vehicle_id,
-          vehicle_type,
-          start_ts,
-          end_ts,
-          total_rent_hours,
-          total_cost,
-          driver_cost,
-          booking_purpose,
-          estimated_destination,
+     const {
+          booking_id,
           initial_cost,
+          payment_for,
           name,
           email,
           phone,
           address
      } = req.body;
+     
 
-     const amount = parseInt(initial_cost || total_cost || 0, 10);
+     const amount = parseInt(initial_cost || 0, 10);
      const tran_id = generateTransactionId();
-     const booking_id = generateBookingId();
 
      const data = {
           total_amount: amount,
           currency: 'BDT',
-          tran_id: tran_id, // use unique tran_id for each api call
+          tran_id: tran_id,
           success_url: `http://localhost:3000/api/paymentRoutes/payment/success/${tran_id}?booking_id=${booking_id}`,
           fail_url: `http://localhost:3000/api/paymentRoutes/paymentFail/${tran_id}`,
           cancel_url: `http://localhost:3000/api/paymentRoutes/paymentFail/${tran_id}`,
@@ -51,36 +43,19 @@ const makePayment = async (req, res) => {
      const client = await pool.connect();
      try {
           await client.query('BEGIN');
-          await client.query(
-               `INSERT INTO booking_info
-               (booking_id, vehicle_type, vehicle_id, start_ts, end_ts, booking_ts, total_rent_hours, driver_cost, total_cost, initial_payment, final_payment, status, user_id, booking_purpose, estimated_destination)
-               VALUES ($1,$2,$3,$4,$5,now(),$6,$7,$8,false,false,'pending',$9,$10,$11)`,
-               [
-                    booking_id,
-                    (vehicle_type || 'car').toLowerCase(),
-                    vehicle_id,
-                    start_ts,
-                    end_ts,
-                    total_rent_hours,
-                    driver_cost || 0,
-                    total_cost,
-                    user_id,
-                    booking_purpose || 'N/A',
-                    estimated_destination || 'N/A'
-               ]
-          );
 
           const paymentId = generatePaymentId();
           await client.query(
                `INSERT INTO payment_info (payment_id, booking_id, date, amount, method_type, trx_id, payment_for)
-               VALUES ($1,$2,now(),$3,'card',$4,'initial')`,
-               [paymentId, booking_id, amount, tran_id]
+               VALUES ($1,$2,now(),$3,'card',$4,$5)`,
+               [paymentId, booking_id, amount, tran_id, payment_for || 'initial']
           );
+
           await client.query('COMMIT');
 
           const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
           const apiResponse = await sslcz.init(data);
-          res.status(200).json({ url: apiResponse.GatewayPageURL, tran_id, booking_id, customer: { name, email, phone, address } });
+          res.status(200).json({ url: apiResponse.GatewayPageURL, tran_id, booking_id });
      } catch (error) {
           await client.query('ROLLBACK');
           res.status(500).send(error.message);
@@ -100,12 +75,23 @@ const paymentSuccess = async (req, res) => {
      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
      sslcz.transactionQueryByTransactionId(data).then(async (apiResponse) => {
           if (apiResponse.no_of_trans_found === 1) {
-               await pool.query(
-                    `UPDATE booking_info
-                     SET initial_payment = true, status = 'confirmed'
-                     WHERE booking_id = $1`,
-                    [bookingId]
+               const paymentRow = await pool.query(
+                    `SELECT payment_for FROM payment_info WHERE trx_id = $1`,
+                    [tran_id]
                );
+               const paymentFor = paymentRow.rows[0]?.payment_for;
+
+               if (paymentFor === 'final') {
+                    await pool.query(
+                         `UPDATE booking_info SET final_payment = true, status = 'Completed' WHERE booking_id = $1`,
+                         [bookingId]
+                    );
+               } else {
+                    await pool.query(
+                         `UPDATE booking_info SET initial_payment = true, status = 'Confirmed' WHERE booking_id = $1`,
+                         [bookingId]
+                    );
+               }
                return res.redirect(url);
           }
           return res.status(400).json({ message: 'Transaction not found' });
@@ -157,54 +143,6 @@ const getPaymentHistory = async (req, res) => {
           const result = await pool.query(query);
           res.json(result.rows);
      } catch (error) {
-          res.status(500).send(error.message);
-     }
-}
-
-const makeExistingBookingPayment = async (req, res) => {
-     let {
-          booking_id,
-          amount,
-          name,
-          email,
-          phone,
-          address
-     } = req.body;
-
-     const tran_id = generateTransactionId();
-
-     const data = {
-          total_amount: amount,
-          currency: 'BDT',
-          tran_id: tran_id,
-          success_url: `http://localhost:3000/api/paymentRoutes/payment/success/${tran_id}?booking_id=${booking_id}`,
-          fail_url: `http://localhost:3000/api/paymentRoutes/paymentFail/${tran_id}`,
-          cancel_url: `http://localhost:3000/api/paymentRoutes/paymentFail/${tran_id}`,
-          ipn_url: 'http://localhost:3030/ipn',
-          shipping_method: 'NO',
-          product_name: 'Rent Payment',
-          product_category: 'Rent',
-          product_profile: 'Rent',
-          cus_name: name,
-          cus_email: email,
-          cus_add1: address,
-          cus_country: 'Bangladesh',
-          cus_phone: phone
-     };
-
-     try {
-          const paymentId = generatePaymentId();
-          await pool.query(
-               `INSERT INTO payment_info (payment_id, booking_id, date, amount, method_type, trx_id, payment_for)
-               VALUES ($1,$2,now(),$3,'card',$4,'initial')`,
-               [paymentId, booking_id, amount, tran_id]
-          );
-
-          const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
-          const apiResponse = await sslcz.init(data);
-          res.status(200).json({ url: apiResponse.GatewayPageURL, tran_id, booking_id });
-     } catch (error) {
-          console.error("Error in existing booking payment:", error);
           res.status(500).send(error.message);
      }
 }
@@ -424,12 +362,11 @@ const getAdminRevenueAnalytics = async (req, res) => {
     }
 };
 
-module.exports = { 
-    makePayment, 
-    makeExistingBookingPayment, 
-    paymentSuccess, 
-    getPaymentInfo, 
-    paymentFail, 
+module.exports = {
+    makePayment,
+    paymentSuccess,
+    getPaymentInfo,
+    paymentFail,
     getPaymentHistory,
     getAdminFilteredPayments,
     getAdminPaymentStats,
