@@ -95,4 +95,116 @@ const getReceivedReviews = async (req, res) => {
      }
 };
 
-module.exports = { addVehicleReview, addDriverReview, addAgencyReview, getUserReviews, getReceivedReviews };
+const submitBookingReview = async (req, res) => {
+     const {
+          booking_id, vehicle_type, vehicle_id, agency_id, driver_id, user_id,
+          vehicle_rating, vehicle_review,
+          agency_rating, agency_review,
+          driver_rating, driver_review,
+     } = req.body;
+
+     if (!booking_id || !vehicle_id || !user_id || !vehicle_rating) {
+          return res.status(400).json({ message: 'booking_id, vehicle_id, user_id, and vehicle_rating are required' });
+     }
+     if (agency_rating && !agency_id) {
+          return res.status(400).json({ message: 'agency_id is required when rating the agency' });
+     }
+     if (driver_rating && !driver_id) {
+          return res.status(400).json({ message: 'driver_id is required when rating the driver' });
+     }
+
+     const vehicleTable = vehicle_type === 'bike' ? 'motorbike_reviews' : 'cars_reviews';
+     const vehicleIdCol = vehicle_type === 'bike' ? 'bike_id' : 'car_id';
+     const entityTable = vehicle_type === 'bike' ? 'bikes' : 'cars';
+     const entityIdCol = vehicle_type === 'bike' ? 'bike_id' : 'car_id';
+
+     const client = await pool.connect();
+     try {
+          await client.query('BEGIN');
+
+          // Check if already reviewed for this booking
+          const existing = await client.query(
+               `SELECT 1 FROM ${vehicleTable} WHERE booking_id = $1 AND user_id = $2 LIMIT 1`,
+               [booking_id, user_id]
+          );
+          if (existing.rows.length > 0) {
+               await client.query('ROLLBACK');
+               return res.status(409).json({ message: 'You have already reviewed this booking' });
+          }
+
+          await client.query(
+               `INSERT INTO ${vehicleTable} (user_id, ${vehicleIdCol}, booking_id, date, review, rating)
+                VALUES ($1, $2, $3, now(), $4, $5)`,
+               [user_id, vehicle_id, booking_id, vehicle_review || null, vehicle_rating]
+          );
+
+          if (agency_id && agency_rating) {
+               await client.query(
+                    `INSERT INTO agency_reviews (agency_id, user_id, booking_id, date, review, rating)
+                     VALUES ($1, $2, $3, now(), $4, $5)`,
+                    [agency_id, user_id, booking_id, agency_review || null, agency_rating]
+               );
+               await client.query(
+                    `UPDATE agencies
+                     SET rating = (SELECT COALESCE(AVG(rating), 0) FROM agency_reviews WHERE agency_id = $1),
+                         rating_count = (SELECT COUNT(*) FROM agency_reviews WHERE agency_id = $1),
+                         review_count = (SELECT COUNT(*) FROM agency_reviews WHERE agency_id = $1 AND review IS NOT NULL)
+                     WHERE agency_id = $1`,
+                    [agency_id]
+               );
+          }
+
+          if (driver_id && driver_rating) {
+               await client.query(
+                    `INSERT INTO driver_reviews (driver_id, user_id, booking_id, date, review, rating)
+                     VALUES ($1, $2, $3, now(), $4, $5)`,
+                    [driver_id, user_id, booking_id, driver_review || null, driver_rating]
+               );
+               await client.query(
+                    `UPDATE driver_info
+                     SET rating = (SELECT COALESCE(AVG(rating), 0) FROM driver_reviews WHERE driver_id = $1),
+                         rating_count = (SELECT COUNT(*) FROM driver_reviews WHERE driver_id = $1),
+                         review_count = (SELECT COUNT(*) FROM driver_reviews WHERE driver_id = $1 AND review IS NOT NULL)
+                     WHERE driver_id = $1`,
+                    [driver_id]
+               );
+          }
+
+          // Update vehicle aggregate rating
+          await client.query(
+               `UPDATE ${entityTable}
+                SET rating = (SELECT COALESCE(AVG(rating), 0) FROM ${vehicleTable} WHERE ${vehicleIdCol} = $1),
+                    rating_count = (SELECT COUNT(*) FROM ${vehicleTable} WHERE ${vehicleIdCol} = $1),
+                    review_count = (SELECT COUNT(*) FROM ${vehicleTable} WHERE ${vehicleIdCol} = $1 AND review IS NOT NULL)
+                WHERE ${entityIdCol} = $1`,
+               [vehicle_id]
+          );
+
+          await client.query('COMMIT');
+          res.status(201).json({ message: 'Reviews submitted successfully' });
+     } catch (error) {
+          await client.query('ROLLBACK');
+          res.status(500).send(error.message);
+     } finally {
+          client.release();
+     }
+};
+
+const checkBookingReview = async (req, res) => {
+     const { bookingId } = req.params;
+     const { userId } = req.query;
+     try {
+          const result = await pool.query(
+               `SELECT 1 FROM cars_reviews WHERE booking_id = $1 AND user_id = $2
+                UNION ALL
+                SELECT 1 FROM motorbike_reviews WHERE booking_id = $1 AND user_id = $2
+                LIMIT 1`,
+               [bookingId, userId]
+          );
+          res.json({ reviewed: result.rows.length > 0 });
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+module.exports = { addVehicleReview, addDriverReview, addAgencyReview, getUserReviews, getReceivedReviews, submitBookingReview, checkBookingReview };

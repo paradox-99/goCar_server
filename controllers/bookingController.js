@@ -104,6 +104,7 @@ const getUserBookings = async (req, res) => {
                COALESCE(cars.rental_price, bikes.rental_price) as vehicle_rental_price,
                cars.transmission_type,
                agencies.agency_name,
+               agencies.agency_id as agency_id,
                agencies.phone_number as agency_phone,
                agencies.email as agency_email,
                driver_info.name as driver_name,
@@ -131,7 +132,15 @@ const getUserBookings = async (req, res) => {
                ri.fuel_charge as return_fuel_charge,
                ri.cleaning_charge,
                ri.return_notes,
-               ri.confirmed as return_confirmed
+               ri.confirmed as return_confirmed,
+               (
+                    CASE
+                         WHEN LOWER(booking_info.vehicle_type::text) = 'bike' THEN
+                              EXISTS(SELECT 1 FROM motorbike_reviews WHERE booking_id = booking_info.booking_id AND user_id = booking_info.user_id)
+                         ELSE
+                              EXISTS(SELECT 1 FROM cars_reviews WHERE booking_id = booking_info.booking_id AND user_id = booking_info.user_id)
+                    END
+               ) AS reviewed
           FROM booking_info JOIN users u ON booking_info.user_id = u.user_id
           LEFT JOIN cars ON booking_info.vehicle_id = cars.car_id AND LOWER(booking_info.vehicle_type::text) = 'car'
           LEFT JOIN bikes ON booking_info.vehicle_id = bikes.bike_id AND LOWER(booking_info.vehicle_type::text) = 'bike'
