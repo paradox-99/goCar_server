@@ -122,7 +122,16 @@ const getUserBookings = async (req, res) => {
                pi.early_fee as pickup_early_fee,
                pi.fuel_charge as pickup_fuel_charge,
                pi.pickup_notes,
-               pi.confirmed as pickup_confirmed
+               pi.confirmed as pickup_confirmed,
+               ri.return_id,
+               ri.return_time,
+               ri.fuel_level as return_fuel_level,
+               ri.odometer_reading as return_odometer,
+               ri.late_fee,
+               ri.fuel_charge as return_fuel_charge,
+               ri.cleaning_charge,
+               ri.return_notes,
+               ri.confirmed as return_confirmed
           FROM booking_info JOIN users u ON booking_info.user_id = u.user_id
           LEFT JOIN cars ON booking_info.vehicle_id = cars.car_id AND LOWER(booking_info.vehicle_type::text) = 'car'
           LEFT JOIN bikes ON booking_info.vehicle_id = bikes.bike_id AND LOWER(booking_info.vehicle_type::text) = 'bike'
@@ -131,6 +140,7 @@ const getUserBookings = async (req, res) => {
           LEFT JOIN driver_info ON booking_info.driver_id = driver_info.driver_id
           LEFT JOIN address as driadd ON driver_info.address_id = driadd.address_id
           LEFT JOIN pickup_info pi ON booking_info.booking_id = pi.booking_id
+          LEFT JOIN return_info ri ON booking_info.booking_id = ri.booking_id
           WHERE booking_info.user_id = $1
      `
      try {

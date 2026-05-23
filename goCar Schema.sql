@@ -287,6 +287,7 @@ CREATE TABLE IF NOT EXISTS public.return_info
     fuel_charge integer,
     cleaning_charge integer,
     return_notes text COLLATE pg_catalog."default",
+    confirmed boolean DEFAULT false,
     CONSTRAINT return_info_pkey PRIMARY KEY (return_id)
 );
 

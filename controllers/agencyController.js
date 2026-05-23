@@ -202,13 +202,23 @@ const getAgencyBookingsByAgencyId = async (req, res) => {
                pi.early_fee AS pickup_early_fee,
                pi.fuel_charge AS pickup_fuel_charge,
                pi.pickup_notes,
-               pi.confirmed AS pickup_confirmed
+               pi.confirmed AS pickup_confirmed,
+               ri.return_id,
+               ri.return_time,
+               ri.fuel_level AS return_fuel_level,
+               ri.odometer_reading AS return_odometer,
+               ri.late_fee,
+               ri.fuel_charge AS return_fuel_charge,
+               ri.cleaning_charge,
+               ri.return_notes,
+               ri.confirmed AS return_confirmed
           FROM booking_info bi
           JOIN users u ON bi.user_id = u.user_id
           JOIN agencies ag ON ag.agency_id = $1
           LEFT JOIN cars c ON bi.vehicle_id = c.car_id AND LOWER(bi.vehicle_type::text) = 'car' AND c.agency_id = $1
           LEFT JOIN bikes b ON bi.vehicle_id = b.bike_id AND LOWER(bi.vehicle_type::text) = 'bike' AND b.agency_id = $1
           LEFT JOIN pickup_info pi ON bi.booking_id = pi.booking_id
+          LEFT JOIN return_info ri ON bi.booking_id = ri.booking_id
           WHERE (c.agency_id = $1 OR b.agency_id = $1)
           ORDER BY bi.booking_ts DESC
      `
