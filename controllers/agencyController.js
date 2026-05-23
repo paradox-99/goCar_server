@@ -184,7 +184,7 @@ const getAgencyBookingsByAgencyId = async (req, res) => {
      }
 
      const query = `
-          SELECT 
+          SELECT
                bi.*,
                COALESCE(c.brand, b.brand) AS brand,
                COALESCE(c.model, b.model) AS model,
@@ -194,12 +194,21 @@ const getAgencyBookingsByAgencyId = async (req, res) => {
                u.email AS user_email,
                u.phone AS user_phone,
                u.photo AS user_photo,
-               ag.agency_name
+               ag.agency_name,
+               pi.pickup_id,
+               pi.pickup_time,
+               pi.fuel_level AS pickup_fuel_level,
+               pi.odometer_reading AS pickup_odometer,
+               pi.early_fee AS pickup_early_fee,
+               pi.fuel_charge AS pickup_fuel_charge,
+               pi.pickup_notes,
+               pi.confirmed AS pickup_confirmed
           FROM booking_info bi
           JOIN users u ON bi.user_id = u.user_id
           JOIN agencies ag ON ag.agency_id = $1
           LEFT JOIN cars c ON bi.vehicle_id = c.car_id AND LOWER(bi.vehicle_type::text) = 'car' AND c.agency_id = $1
           LEFT JOIN bikes b ON bi.vehicle_id = b.bike_id AND LOWER(bi.vehicle_type::text) = 'bike' AND b.agency_id = $1
+          LEFT JOIN pickup_info pi ON bi.booking_id = pi.booking_id
           WHERE (c.agency_id = $1 OR b.agency_id = $1)
           ORDER BY bi.booking_ts DESC
      `

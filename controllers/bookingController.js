@@ -91,30 +91,38 @@ const getUserBookings = async (req, res) => {
      const id = req.params.id;
      
      const query = `
-          SELECT 
-               booking_info.*, 
-               COALESCE(cars.brand, bikes.brand) as brand, 
-               COALESCE(cars.model, bikes.model) as model, 
-               COALESCE(cars.car_type, bikes.car_type) as car_type, 
-               COALESCE(cars.images, bikes.images) as images, 
-               cars.seats, 
-               COALESCE(cars.fuel, bikes.fuel) as fuel, 
-               COALESCE(cars.mileage, bikes.mileage) as mileage, 
-               COALESCE(cars.gear, bikes.gear) as gear, 
-               COALESCE(cars.rental_price, bikes.rental_price) as vehicle_rental_price, 
-               cars.transmission_type, 
-               agencies.agency_name, 
-               agencies.phone_number as agency_phone, 
-               agencies.email as agency_email, 
-               driver_info.name as driver_name, 
-               driver_info.email as driver_email, 
-               driver_info.phone as driver_phone, 
-               driver_info.photo as driver_photo, 
-               driver_info.experience_year as driver_experience, 
-               driver_info.rating as driver_rating, 
-               driver_info.rental_price as driver_rental_price, 
-               agadd.display_name as agency_address, 
-               driadd.display_name as driver_address, u.name as user_name, u.email as user_email, u.phone as user_phone
+          SELECT
+               booking_info.*,
+               COALESCE(cars.brand, bikes.brand) as brand,
+               COALESCE(cars.model, bikes.model) as model,
+               COALESCE(cars.car_type, bikes.car_type) as car_type,
+               COALESCE(cars.images, bikes.images) as images,
+               cars.seats,
+               COALESCE(cars.fuel, bikes.fuel) as fuel,
+               COALESCE(cars.mileage, bikes.mileage) as mileage,
+               COALESCE(cars.gear, bikes.gear) as gear,
+               COALESCE(cars.rental_price, bikes.rental_price) as vehicle_rental_price,
+               cars.transmission_type,
+               agencies.agency_name,
+               agencies.phone_number as agency_phone,
+               agencies.email as agency_email,
+               driver_info.name as driver_name,
+               driver_info.email as driver_email,
+               driver_info.phone as driver_phone,
+               driver_info.photo as driver_photo,
+               driver_info.experience_year as driver_experience,
+               driver_info.rating as driver_rating,
+               driver_info.rental_price as driver_rental_price,
+               agadd.display_name as agency_address,
+               driadd.display_name as driver_address, u.name as user_name, u.email as user_email, u.phone as user_phone,
+               pi.pickup_id,
+               pi.pickup_time,
+               pi.fuel_level as pickup_fuel_level,
+               pi.odometer_reading as pickup_odometer,
+               pi.early_fee as pickup_early_fee,
+               pi.fuel_charge as pickup_fuel_charge,
+               pi.pickup_notes,
+               pi.confirmed as pickup_confirmed
           FROM booking_info JOIN users u ON booking_info.user_id = u.user_id
           LEFT JOIN cars ON booking_info.vehicle_id = cars.car_id AND LOWER(booking_info.vehicle_type::text) = 'car'
           LEFT JOIN bikes ON booking_info.vehicle_id = bikes.bike_id AND LOWER(booking_info.vehicle_type::text) = 'bike'
@@ -122,6 +130,7 @@ const getUserBookings = async (req, res) => {
           LEFT JOIN address as agadd ON agencies.address_id = agadd.address_id
           LEFT JOIN driver_info ON booking_info.driver_id = driver_info.driver_id
           LEFT JOIN address as driadd ON driver_info.address_id = driadd.address_id
+          LEFT JOIN pickup_info pi ON booking_info.booking_id = pi.booking_id
           WHERE booking_info.user_id = $1
      `
      try {

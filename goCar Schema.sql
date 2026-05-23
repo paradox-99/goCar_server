@@ -271,6 +271,7 @@ CREATE TABLE IF NOT EXISTS public.pickup_info
     early_fee integer,
     fuel_charge integer,
     pickup_notes text COLLATE pg_catalog."default",
+    confirmed boolean DEFAULT false,
     CONSTRAINT pickup_info_pkey PRIMARY KEY (pickup_id)
 );
 
