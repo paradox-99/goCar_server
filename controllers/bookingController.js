@@ -1,5 +1,5 @@
 const pool = require('../config/db')
-const { generateBookingId } = require('./createIDs')
+const { generateBookingId, generateAssignmentId } = require('./createIDs')
 const { sendBookingNotification, sendStatusUpdateNotification } = require('../services/notificationService')
 
 const createBooking = async (req, res) => {
@@ -14,23 +14,8 @@ const createBooking = async (req, res) => {
           VALUES ($1, $2, $3, $4, $5, now(), $6, $7, $8, $9, $10, $11, $12, $13, $14)
      `;
 
-     const updateCarStatus = `
-          UPDATE cars
-          SET status = 'Unavailable'
-          WHERE car_id = $1
-     `;
-
-     const updateBikeStatus = `
-          UPDATE bikes
-          SET status = 'Unavailable'
-          WHERE bike_id = $1
-     `;
-
-     const updateDriverStatus = `
-          UPDATE driver_info
-          SET availability = false
-          WHERE driver_id = $1
-     `;
+     const updateCarStatus = `UPDATE cars SET status = 'Unavailable' WHERE car_id = $1`;
+     const updateBikeStatus = `UPDATE bikes SET status = 'Unavailable' WHERE bike_id = $1`;
 
      try {
           await client.query('BEGIN');
@@ -43,6 +28,7 @@ const createBooking = async (req, res) => {
           );
           const agency_id = agencyRes.rows[0]?.agency_id || null;
 
+          // driver_id stays NULL in booking_info until driver accepts the assignment
           const result = await client.query(query, [
                booking_id,
                vehicle_type,
@@ -52,7 +38,7 @@ const createBooking = async (req, res) => {
                total_rent_hours,
                driver_cost || 0,
                total_cost,
-               driver_id || null,
+               null,           // driver_id — set after driver accepts
                status,
                user_id,
                booking_purpose,
@@ -64,16 +50,21 @@ const createBooking = async (req, res) => {
                return res.status(200).json({ message: 'Failed To Create Booking.', code: 0 });
           }
 
-          // Update vehicle availability based on type
+          // Update vehicle availability
           if (vehicle_type === 'Car') {
                await client.query(updateCarStatus, [vehicle_id]);
           } else if (vehicle_type === 'Bike') {
                await client.query(updateBikeStatus, [vehicle_id]);
           }
 
-          // Update driver availability if driver_id is provided
+          // If a driver was requested, create a pending assignment for them to accept/reject
           if (driver_id) {
-               await client.query(updateDriverStatus, [driver_id]);
+               const assignment_id = generateAssignmentId();
+               await client.query(
+                    `INSERT INTO driver_trip_assignments (assignment_id, booking_id, driver_id, status)
+                     VALUES ($1, $2, $3, 'pending')`,
+                    [assignment_id, booking_id, driver_id]
+               );
           }
 
           await client.query('COMMIT');

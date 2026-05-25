@@ -55,6 +55,12 @@ function generateDamageId() {
      return `${prefix}${uniqueNumber}`;
 }
 
+function generateAssignmentId() {
+     const prefix = "ASGN-";
+     const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000);
+     return `${prefix}${uniqueNumber}`;
+}
+
 module.exports = {
      createUserId,
      createAddressId,
@@ -65,4 +71,5 @@ module.exports = {
      generateTransactionId,
      generateNotificationId,
      generateDamageId,
+     generateAssignmentId,
 };

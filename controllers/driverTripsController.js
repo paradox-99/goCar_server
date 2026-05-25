@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { generateAssignmentId } = require('./createIDs');
 
 const getTripsStats = async (req, res) => {
     const { driverId } = req.params;
@@ -78,10 +79,12 @@ const getTripsBanners = async (req, res) => {
                 AND bi.start_ts < NOW() AND pi.pickup_id IS NULL LIMIT 1
             `, [driverId]),
             pool.query(`
-                SELECT bi.booking_id, bi.start_ts, bi.booking_ts
-                FROM booking_info bi
-                WHERE bi.driver_id = $1 AND bi.booking_ts > NOW() - INTERVAL '24 hours'
-                ORDER BY bi.booking_ts DESC LIMIT 1
+                SELECT dta.assignment_id, bi.booking_id, bi.start_ts, dta.assigned_at
+                FROM driver_trip_assignments dta
+                JOIN booking_info bi ON bi.booking_id = dta.booking_id
+                WHERE dta.driver_id = $1 AND dta.status = 'pending'
+                AND dta.assigned_at > NOW() - INTERVAL '24 hours'
+                ORDER BY dta.assigned_at DESC LIMIT 1
             `, [driverId]),
             pool.query(`
                 SELECT bi.booking_id, bi.start_ts, bi.estimated_destination,
@@ -290,4 +293,105 @@ const getTripEarnings = async (req, res) => {
     }
 };
 
-module.exports = { getTripsStats, getTripsBanners, getTripsList, getTripDetail, getTripEarnings };
+// Get all pending trip requests for a driver
+const getDriverRequests = async (req, res) => {
+    const { driverId } = req.params;
+    try {
+        const result = await pool.query(`
+            SELECT
+                dta.assignment_id, dta.status AS assignment_status, dta.assigned_at,
+                bi.booking_id, bi.start_ts, bi.end_ts, bi.total_rent_hours, bi.driver_cost,
+                bi.total_cost, bi.booking_purpose, bi.estimated_destination, bi.vehicle_type,
+                u.name AS customer_name, u.phone AS customer_phone,
+                COALESCE(c.brand, bk.brand) AS brand,
+                COALESCE(c.model, bk.model) AS model,
+                COALESCE(c.car_type, bk.car_type) AS car_type,
+                COALESCE(c.images[1], bk.images[1]) AS vehicle_image,
+                ag.agency_name
+            FROM driver_trip_assignments dta
+            JOIN booking_info bi ON bi.booking_id = dta.booking_id
+            JOIN users u ON u.user_id = bi.user_id
+            LEFT JOIN cars c ON bi.vehicle_id = c.car_id AND LOWER(bi.vehicle_type::text) = 'car'
+            LEFT JOIN bikes bk ON bi.vehicle_id = bk.bike_id AND LOWER(bi.vehicle_type::text) = 'bike'
+            LEFT JOIN agency_info ag ON ag.agency_id = bi.agency_id
+            WHERE dta.driver_id = $1 AND dta.status = 'pending'
+            ORDER BY dta.assigned_at DESC
+        `, [driverId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('getDriverRequests:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Accept or reject a trip request
+const respondToRequest = async (req, res) => {
+    const { assignmentId } = req.params;
+    const { action, driver_note } = req.body; // action: 'accept' | 'reject'
+
+    if (!['accept', 'reject'].includes(action)) {
+        return res.status(400).json({ error: 'action must be accept or reject' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Fetch the assignment with a row lock
+        const asgRes = await client.query(
+            `SELECT dta.*, bi.vehicle_id, bi.vehicle_type
+             FROM driver_trip_assignments dta
+             JOIN booking_info bi ON bi.booking_id = dta.booking_id
+             WHERE dta.assignment_id = $1 FOR UPDATE`,
+            [assignmentId]
+        );
+        if (!asgRes.rows[0]) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Assignment not found' });
+        }
+        const asgn = asgRes.rows[0];
+        if (asgn.status !== 'pending') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Assignment already responded to' });
+        }
+
+        if (action === 'accept') {
+            // Set driver_id in booking_info
+            await client.query(
+                `UPDATE booking_info SET driver_id = $1 WHERE booking_id = $2`,
+                [asgn.driver_id, asgn.booking_id]
+            );
+            // Mark driver unavailable
+            await client.query(
+                `UPDATE driver_info SET availability = false WHERE driver_id = $1`,
+                [asgn.driver_id]
+            );
+            // Update assignment
+            await client.query(
+                `UPDATE driver_trip_assignments
+                 SET status = 'confirmed', responded_at = NOW(), driver_note = $1
+                 WHERE assignment_id = $2`,
+                [driver_note || null, assignmentId]
+            );
+        } else {
+            // Reject: just update the assignment, driver_id stays NULL
+            await client.query(
+                `UPDATE driver_trip_assignments
+                 SET status = 'cancelled_by_driver', responded_at = NOW(), driver_note = $1
+                 WHERE assignment_id = $2`,
+                [driver_note || null, assignmentId]
+            );
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, action });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('respondToRequest:', err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+};
+
+module.exports = { getTripsStats, getTripsBanners, getTripsList, getTripDetail, getTripEarnings, getDriverRequests, respondToRequest };
