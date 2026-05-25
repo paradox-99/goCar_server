@@ -17,7 +17,7 @@ const getAgencyDashboardStats = async (req, res) => {
             pool.query(`
                 SELECT
                     COUNT(*)::int AS total_bookings,
-                    COUNT(*) FILTER (WHERE bi.status IN ('Confirmed','Running','Overdue'))::int AS active_bookings,
+                    COUNT(*) FILTER (WHERE bi.status IN ('Confirmed','Running'))::int AS active_bookings,
                     COUNT(*) FILTER (WHERE bi.status = 'Requested')::int AS pending_requests,
                     COUNT(*) FILTER (WHERE bi.status = 'Completed')::int AS completed_trips,
                     COUNT(*) FILTER (WHERE bi.status = 'Cancelled')::int AS cancelled_bookings,
@@ -29,7 +29,10 @@ const getAgencyDashboardStats = async (req, res) => {
                     COALESCE(SUM(bi.total_cost) FILTER (WHERE bi.status='Completed' AND bi.vehicle_type='Bike'), 0)::bigint AS bike_revenue,
                     COUNT(*) FILTER (WHERE bi.status='Completed' AND DATE_TRUNC('month',bi.booking_ts)=DATE_TRUNC('month',CURRENT_DATE))::int AS this_month_trips,
                     COUNT(*) FILTER (WHERE bi.status='Completed' AND DATE_TRUNC('month',bi.booking_ts)=DATE_TRUNC('month',CURRENT_DATE-INTERVAL'1 month'))::int AS last_month_trips
-                FROM booking_info bi WHERE bi.agency_id = $1
+                FROM booking_info bi
+                LEFT JOIN cars _vc ON bi.vehicle_id = _vc.car_id AND bi.vehicle_type = 'Car'
+                LEFT JOIN bikes _vb ON bi.vehicle_id = _vb.bike_id AND bi.vehicle_type = 'Bike'
+                WHERE COALESCE(bi.agency_id, _vc.agency_id, _vb.agency_id) = $1
             `, [agencyId]),
             pool.query(`
                 SELECT
@@ -216,8 +219,11 @@ const getRevenueTrend = async (req, res) => {
             all_data AS (
                 SELECT DATE_TRUNC('month', bi.booking_ts) AS month, bi.total_cost
                 FROM booking_info bi
-                WHERE bi.agency_id=$1 AND bi.status='Completed'
+                LEFT JOIN cars _vc ON bi.vehicle_id = _vc.car_id AND bi.vehicle_type = 'Car'
+                LEFT JOIN bikes _vb ON bi.vehicle_id = _vb.bike_id AND bi.vehicle_type = 'Bike'
+                WHERE bi.status='Completed'
                 AND bi.booking_ts >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '23 months')
+                AND COALESCE(bi.agency_id, _vc.agency_id, _vb.agency_id) = $1
             )
             SELECT
                 TO_CHAR(m.month, 'Mon YY') AS label,
@@ -256,7 +262,7 @@ const getRecentBookings = async (req, res) => {
             JOIN users u ON bi.user_id=u.user_id
             LEFT JOIN cars c ON bi.vehicle_id=c.car_id AND bi.vehicle_type='Car'
             LEFT JOIN bikes b ON bi.vehicle_id=b.bike_id AND bi.vehicle_type='Bike'
-            WHERE bi.agency_id=$1
+            WHERE COALESCE(bi.agency_id, c.agency_id, b.agency_id)=$1
             ORDER BY bi.booking_ts DESC
             LIMIT 8
         `, [agencyId]);

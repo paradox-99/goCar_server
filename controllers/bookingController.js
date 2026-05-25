@@ -10,8 +10,8 @@ const createBooking = async (req, res) => {
      const client = await pool.connect();      
 
      const query = `
-          INSERT INTO booking_info (booking_id, vehicle_type, vehicle_id, start_ts, end_ts, booking_ts, total_rent_hours, driver_cost, total_cost, driver_id, status, user_id, booking_purpose, estimated_destination)
-          VALUES ($1, $2, $3, $4, $5, now(), $6, $7, $8, $9, $10, $11, $12, $13)
+          INSERT INTO booking_info (booking_id, vehicle_type, vehicle_id, start_ts, end_ts, booking_ts, total_rent_hours, driver_cost, total_cost, driver_id, status, user_id, booking_purpose, estimated_destination, agency_id)
+          VALUES ($1, $2, $3, $4, $5, now(), $6, $7, $8, $9, $10, $11, $12, $13, $14)
      `;
 
      const updateCarStatus = `
@@ -35,6 +35,14 @@ const createBooking = async (req, res) => {
      try {
           await client.query('BEGIN');
 
+          const vehicleTable = vehicle_type === 'Car' ? 'cars' : 'bikes';
+          const vehicleIdCol = vehicle_type === 'Car' ? 'car_id' : 'bike_id';
+          const agencyRes = await client.query(
+               `SELECT agency_id FROM ${vehicleTable} WHERE ${vehicleIdCol} = $1`,
+               [vehicle_id]
+          );
+          const agency_id = agencyRes.rows[0]?.agency_id || null;
+
           const result = await client.query(query, [
                booking_id,
                vehicle_type,
@@ -48,7 +56,8 @@ const createBooking = async (req, res) => {
                status,
                user_id,
                booking_purpose,
-               estimated_destination
+               estimated_destination,
+               agency_id
           ]);
           if (result.rowCount === 0) {
                await client.query('ROLLBACK');
