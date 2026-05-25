@@ -3,13 +3,17 @@ const pool = require('../config/db');
 const getDamageStats = async (req, res) => {
     try {
         const stats = await pool.query(`
-            SELECT 
+            SELECT
                 COUNT(*) as total_reports,
                 COUNT(*) FILTER (WHERE status = 'Pending') as open_reports,
                 COUNT(*) FILTER (WHERE status = 'On-Review') as under_review,
                 COUNT(*) FILTER (WHERE status = 'Resolved') as resolved,
                 COALESCE(SUM(estimated_cost), 0) as total_cost,
-                (SELECT COUNT(*) FROM (SELECT car_id FROM damage_reports GROUP BY car_id HAVING COUNT(*) > 1) as repeats) as repeat_offenders
+                (SELECT COUNT(*) FROM (
+                    SELECT car_id FROM damage_reports WHERE car_id IS NOT NULL GROUP BY car_id HAVING COUNT(*) > 1
+                    UNION ALL
+                    SELECT bike_id FROM damage_reports WHERE bike_id IS NOT NULL GROUP BY bike_id HAVING COUNT(*) > 1
+                ) as repeats) as repeat_offenders
             FROM damage_reports
         `);
 
@@ -32,19 +36,18 @@ const getDamageStats = async (req, res) => {
 };
 
 const getDamageReports = async (req, res) => {
-    const { 
-        search, status, severity, damage_type, car_id, agency_id, 
-        startDate, endDate, costRange, page = 0, limit = 10 
+    const {
+        search, status, severity, damage_type, car_id, agency_id,
+        startDate, endDate, costRange, page = 0, limit = 10
     } = req.query;
-    
+
     const offset = page * limit;
     let params = [];
     let whereClauses = [];
 
-    // Search logic
     if (search) {
         params.push(`%${search}%`);
-        whereClauses.push(`(dr.damage_id ILIKE $${params.length} OR dr.booking_id ILIKE $${params.length} OR c.brand ILIKE $${params.length} OR c.model ILIKE $${params.length} OR u.name ILIKE $${params.length})`);
+        whereClauses.push(`(dr.damage_id ILIKE $${params.length} OR dr.booking_id ILIKE $${params.length} OR COALESCE(c.brand, b.brand) ILIKE $${params.length} OR COALESCE(c.model, b.model) ILIKE $${params.length} OR u.name ILIKE $${params.length})`);
     }
 
     if (status && status !== 'All') {
@@ -66,12 +69,12 @@ const getDamageReports = async (req, res) => {
 
     if (car_id && car_id !== 'All') {
         params.push(car_id);
-        whereClauses.push(`dr.car_id = $${params.length}`);
+        whereClauses.push(`(dr.car_id = $${params.length} OR dr.bike_id = $${params.length})`);
     }
 
     if (agency_id && agency_id !== 'All') {
         params.push(agency_id);
-        whereClauses.push(`c.agency_id = $${params.length}`);
+        whereClauses.push(`COALESCE(c.agency_id, b.agency_id) = $${params.length}`);
     }
 
     if (startDate && endDate) {
@@ -97,19 +100,25 @@ const getDamageReports = async (req, res) => {
 
     try {
         const query = `
-            SELECT 
-                dr.*, 
-                c.brand, c.model, c.car_type, c.images[1] as car_image,
+            SELECT
+                dr.*,
+                COALESCE(c.brand, b.brand) AS brand,
+                COALESCE(c.model, b.model) AS model,
+                COALESCE(c.car_type, b.car_type) AS car_type,
+                COALESCE(c.images[1], b.images[1]) AS car_image,
                 a.agency_name,
                 u.name as reporter_name, u.phone as reporter_phone, u.userrole as reporter_role,
-                (SELECT COUNT(*) FROM damage_reports WHERE car_id = dr.car_id) as vehicle_damage_count
+                (SELECT COUNT(*) FROM damage_reports dr2
+                    WHERE (dr.car_id IS NOT NULL AND dr2.car_id = dr.car_id)
+                       OR (dr.bike_id IS NOT NULL AND dr2.bike_id = dr.bike_id)) as vehicle_damage_count
             FROM damage_reports dr
-            JOIN cars c ON dr.car_id = c.car_id
-            JOIN agencies a ON c.agency_id = a.agency_id
+            LEFT JOIN cars c ON dr.car_id = c.car_id
+            LEFT JOIN bikes b ON dr.bike_id = b.bike_id
+            JOIN agencies a ON COALESCE(c.agency_id, b.agency_id) = a.agency_id
             JOIN users u ON dr.reported_by = u.user_id
             ${whereSql}
-            ORDER BY 
-                CASE 
+            ORDER BY
+                CASE
                     WHEN dr.severity = 'High' AND dr.status = 'Pending' THEN 1
                     WHEN dr.severity = 'Medium' AND dr.status = 'Pending' THEN 2
                     WHEN dr.severity = 'Low' AND dr.status = 'Pending' THEN 3
@@ -123,9 +132,12 @@ const getDamageReports = async (req, res) => {
         `;
 
         const countQuery = `
-            SELECT COUNT(*) 
+            SELECT COUNT(*)
             FROM damage_reports dr
-            JOIN cars c ON dr.car_id = c.car_id
+            LEFT JOIN cars c ON dr.car_id = c.car_id
+            LEFT JOIN bikes b ON dr.bike_id = b.bike_id
+            JOIN agencies a ON COALESCE(c.agency_id, b.agency_id) = a.agency_id
+            JOIN users u ON dr.reported_by = u.user_id
             ${whereSql}
         `;
 
@@ -148,9 +160,16 @@ const getDamageDetail = async (req, res) => {
     const { id } = req.params;
     try {
         const report = await pool.query(`
-            SELECT 
-                dr.*, 
-                c.brand, c.model, c.car_type, c.build_year, c.images, c.status as car_status, c.verified as car_verified, c.rating as car_rating,
+            SELECT
+                dr.*,
+                COALESCE(c.brand, b.brand) AS brand,
+                COALESCE(c.model, b.model) AS model,
+                COALESCE(c.car_type, b.car_type) AS car_type,
+                c.build_year,
+                COALESCE(c.images, b.images) AS images,
+                COALESCE(c.status, b.status) AS car_status,
+                COALESCE(c.verified, b.verified) AS car_verified,
+                COALESCE(c.rating, b.rating) AS car_rating,
                 a.agency_name, a.agency_id,
                 u.name as reporter_name, u.email as reporter_email, u.phone as reporter_phone, u.photo as reporter_photo, u.gender as reporter_gender, u.accountstatus as reporter_status, u.verified as reporter_verified, u.userrole as reporter_role,
                 bi.start_ts, bi.end_ts, bi.status as booking_status, bi.booking_purpose, bi.estimated_destination, bi.total_rent_hours,
@@ -159,8 +178,9 @@ const getDamageDetail = async (req, res) => {
                 pi.pickup_time, pi.fuel_level as pickup_fuel, pi.odometer_reading as pickup_odometer, pi.pickup_notes,
                 ri.return_time, ri.fuel_level as return_fuel, ri.odometer_reading as return_odometer, ri.late_fee, ri.fuel_charge, ri.cleaning_charge, ri.return_notes
             FROM damage_reports dr
-            JOIN cars c ON dr.car_id = c.car_id
-            JOIN agencies a ON c.agency_id = a.agency_id
+            LEFT JOIN cars c ON dr.car_id = c.car_id
+            LEFT JOIN bikes b ON dr.bike_id = b.bike_id
+            JOIN agencies a ON COALESCE(c.agency_id, b.agency_id) = a.agency_id
             JOIN users u ON dr.reported_by = u.user_id
             JOIN booking_info bi ON dr.booking_id = bi.booking_id
             JOIN users cu ON bi.user_id = cu.user_id
@@ -172,26 +192,29 @@ const getDamageDetail = async (req, res) => {
 
         if (report.rowCount === 0) return res.status(404).json({ message: 'Report not found' });
 
-        const history = await pool.query(`
-            SELECT damage_id, report_date, severity, damage_type, status, estimated_cost
-            FROM damage_reports
-            WHERE car_id = $1
-            ORDER BY report_date DESC
-        `, [report.rows[0].car_id]);
+        const r = report.rows[0];
 
-        const payments = await pool.query(`
-            SELECT * FROM payment_info
-            WHERE booking_id = $1 AND (payment_for ILIKE '%damage%' OR payment_for ILIKE '%repair%')
-        `, [report.rows[0].booking_id]);
-
-        const reporterStats = await pool.query(`
-            SELECT COUNT(*) as total_reports
-            FROM damage_reports
-            WHERE reported_by = $1
-        `, [report.rows[0].reported_by]);
+        const [history, payments, reporterStats] = await Promise.all([
+            pool.query(`
+                SELECT damage_id, report_date, severity, damage_type, status, estimated_cost
+                FROM damage_reports
+                WHERE ($1::text IS NOT NULL AND car_id = $1)
+                   OR ($2::text IS NOT NULL AND bike_id = $2)
+                ORDER BY report_date DESC
+            `, [r.car_id || null, r.bike_id || null]),
+            pool.query(`
+                SELECT * FROM payment_info
+                WHERE booking_id = $1 AND (payment_for ILIKE '%damage%' OR payment_for ILIKE '%repair%')
+            `, [r.booking_id]),
+            pool.query(`
+                SELECT COUNT(*) as total_reports
+                FROM damage_reports
+                WHERE reported_by = $1
+            `, [r.reported_by])
+        ]);
 
         res.json({
-            report: report.rows[0],
+            report: r,
             history: history.rows,
             payments: payments.rows,
             reporterStats: reporterStats.rows[0]
@@ -225,7 +248,7 @@ const updateDamageStatus = async (req, res) => {
 const getDamageAnalytics = async (req, res) => {
     try {
         const reportsOverTime = await pool.query(`
-            SELECT 
+            SELECT
                 TO_CHAR(report_date, 'Mon YYYY') as month,
                 COUNT(*) FILTER (WHERE severity = 'Low') as minor,
                 COUNT(*) FILTER (WHERE severity = 'Medium') as moderate,
@@ -258,20 +281,21 @@ const getDamageAnalytics = async (req, res) => {
         `);
 
         const mostDamagedVehicles = await pool.query(`
-            SELECT 
-                c.brand || ' ' || c.model as vehicle,
+            SELECT
+                COALESCE(c.brand, b.brand) || ' ' || COALESCE(c.model, b.model) as vehicle,
                 COUNT(*) as count,
                 COUNT(*) FILTER (WHERE dr.severity = 'High') as severe_count
             FROM damage_reports dr
-            JOIN cars c ON dr.car_id = c.car_id
+            LEFT JOIN cars c ON dr.car_id = c.car_id
+            LEFT JOIN bikes b ON dr.bike_id = b.bike_id
             GROUP BY vehicle
             ORDER BY count DESC
             LIMIT 10
         `);
 
         const costDist = await pool.query(`
-            SELECT 
-                CASE 
+            SELECT
+                CASE
                     WHEN estimated_cost < 5000 THEN 'Under 5K'
                     WHEN estimated_cost BETWEEN 5000 AND 20000 THEN '5K–20K'
                     WHEN estimated_cost BETWEEN 20000 AND 50000 THEN '20K–50K'
@@ -286,15 +310,16 @@ const getDamageAnalytics = async (req, res) => {
         const agencyDamage = await pool.query(`
             SELECT a.agency_name, COUNT(*) as count
             FROM damage_reports dr
-            JOIN cars c ON dr.car_id = c.car_id
-            JOIN agencies a ON c.agency_id = a.agency_id
+            LEFT JOIN cars c ON dr.car_id = c.car_id
+            LEFT JOIN bikes b ON dr.bike_id = b.bike_id
+            JOIN agencies a ON COALESCE(c.agency_id, b.agency_id) = a.agency_id
             GROUP BY a.agency_name
             ORDER BY count DESC
             LIMIT 10
         `);
 
         const resolutionTime = await pool.query(`
-            SELECT 
+            SELECT
                 severity,
                 AVG(CURRENT_DATE - report_date) as avg_days
             FROM damage_reports

@@ -74,13 +74,15 @@ const getAgencyDashboardStats = async (req, res) => {
                     COUNT(*) FILTER (WHERE dr.estimated_cost>0 AND NOT ${IS_PAID_DR})::int AS unpaid_charges,
                     COALESCE((SELECT SUM(pi.amount) FROM payment_info pi
                         JOIN damage_reports dr2 ON pi.booking_id=dr2.booking_id
-                        JOIN cars c2 ON dr2.car_id=c2.car_id
-                        WHERE c2.agency_id=$1
+                        LEFT JOIN cars c2 ON dr2.car_id=c2.car_id
+                        LEFT JOIN bikes b2 ON dr2.bike_id=b2.bike_id
+                        WHERE COALESCE(c2.agency_id, b2.agency_id)=$1
                         AND (pi.payment_for ILIKE '%damage%' OR pi.payment_for ILIKE '%repair%')), 0) AS damage_recovered,
                     COALESCE(SUM(CASE WHEN NOT ${IS_PAID_DR} AND dr.estimated_cost>0 THEN dr.estimated_cost END), 0) AS damage_outstanding
                 FROM damage_reports dr
-                JOIN cars c ON dr.car_id=c.car_id
-                WHERE c.agency_id=$1
+                LEFT JOIN cars c ON dr.car_id=c.car_id
+                LEFT JOIN bikes b ON dr.bike_id=b.bike_id
+                WHERE COALESCE(c.agency_id, b.agency_id)=$1
             `, [agencyId]),
             pool.query(`
                 SELECT (
@@ -371,17 +373,24 @@ const getRecentDamage = async (req, res) => {
                 SELECT
                     dr.damage_id, dr.severity, dr.damage_type, dr.status,
                     dr.estimated_cost, dr.report_date,
-                    c.brand, c.model,
+                    COALESCE(c.brand, b.brand) AS brand,
+                    COALESCE(c.model, b.model) AS model,
                     ${IS_PAID} AS is_paid,
-                    (SELECT COUNT(*) FROM damage_reports dr2 WHERE dr2.car_id=dr.car_id)::int AS vehicle_damage_count
+                    (SELECT COUNT(*) FROM damage_reports dr2
+                        WHERE (dr.car_id IS NOT NULL AND dr2.car_id=dr.car_id)
+                           OR (dr.bike_id IS NOT NULL AND dr2.bike_id=dr.bike_id))::int AS vehicle_damage_count
                 FROM damage_reports dr
-                JOIN cars c ON dr.car_id=c.car_id
-                WHERE c.agency_id=$1
+                LEFT JOIN cars c ON dr.car_id=c.car_id
+                LEFT JOIN bikes b ON dr.bike_id=b.bike_id
+                WHERE COALESCE(c.agency_id, b.agency_id)=$1
                 ORDER BY dr.report_date DESC
                 LIMIT 5
             `, [agencyId]),
             pool.query(
-                `SELECT COUNT(*)::int AS total FROM damage_reports dr JOIN cars c ON dr.car_id=c.car_id WHERE c.agency_id=$1`,
+                `SELECT COUNT(*)::int AS total FROM damage_reports dr
+                 LEFT JOIN cars c ON dr.car_id=c.car_id
+                 LEFT JOIN bikes b ON dr.bike_id=b.bike_id
+                 WHERE COALESCE(c.agency_id, b.agency_id)=$1`,
                 [agencyId]
             )
         ]);
