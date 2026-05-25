@@ -17,6 +17,19 @@ CREATE TABLE IF NOT EXISTS public.address
     CONSTRAINT address_pkey PRIMARY KEY (address_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.admin_activity_log
+(
+    log_id serial NOT NULL,
+    admin_id character varying(20) COLLATE pg_catalog."default",
+    action_type character varying(50) COLLATE pg_catalog."default",
+    entity_type character varying(50) COLLATE pg_catalog."default",
+    entity_id character varying(50) COLLATE pg_catalog."default",
+    details jsonb,
+    "timestamp" timestamp with time zone DEFAULT now(),
+    ip_address character varying(45) COLLATE pg_catalog."default",
+    CONSTRAINT admin_activity_log_pkey PRIMARY KEY (log_id)
+);
+
 CREATE TABLE IF NOT EXISTS public.agencies
 (
     agency_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
@@ -38,6 +51,7 @@ CREATE TABLE IF NOT EXISTS public.agencies
     rating numeric(3, 2) DEFAULT 0,
     rating_count integer DEFAULT 0,
     review_count integer DEFAULT 0,
+    drivers_count integer NOT NULL DEFAULT 0,
     CONSTRAINT agencies_pkey PRIMARY KEY (agency_id)
 );
 
@@ -47,7 +61,8 @@ CREATE TABLE IF NOT EXISTS public.agency_reviews
     user_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
     date date,
     review text COLLATE pg_catalog."default",
-    rating numeric(2, 1)
+    rating numeric(2, 1),
+    booking_id character varying(20) COLLATE pg_catalog."default"
 );
 
 CREATE TABLE IF NOT EXISTS public.bikes
@@ -158,7 +173,8 @@ CREATE TABLE IF NOT EXISTS public.cars_reviews
     car_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
     date date,
     review text COLLATE pg_catalog."default",
-    rating numeric(2, 1)
+    rating numeric(2, 1),
+    booking_id character varying(20) COLLATE pg_catalog."default"
 );
 
 CREATE TABLE IF NOT EXISTS public.damage_reports
@@ -171,10 +187,10 @@ CREATE TABLE IF NOT EXISTS public.damage_reports
     damage_type character varying(100) COLLATE pg_catalog."default",
     severity damage_severity,
     description text COLLATE pg_catalog."default",
-    photos text[] COLLATE pg_catalog."default" DEFAULT '{}'::text[],
     estimated_cost integer,
     status damage_status,
-    bike_id character varying(20) COLLATE pg_catalog."default",
+    photos text[] COLLATE pg_catalog."default",
+    bike_id character varying COLLATE pg_catalog."default",
     CONSTRAINT damage_reports_pkey PRIMARY KEY (damage_id)
 );
 
@@ -210,7 +226,31 @@ CREATE TABLE IF NOT EXISTS public.driver_reviews
     user_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
     date date,
     review text COLLATE pg_catalog."default",
-    rating numeric(2, 1)
+    rating numeric(2, 1),
+    booking_id character varying(20) COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS public.driver_trip_assignments
+(
+    assignment_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    booking_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    driver_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    status assignment_status NOT NULL DEFAULT 'pending'::assignment_status,
+    assigned_at timestamp with time zone NOT NULL DEFAULT now(),
+    responded_at timestamp with time zone,
+    cancelled_at timestamp with time zone,
+    cancelled_by character varying(20) COLLATE pg_catalog."default",
+    cancel_reason text COLLATE pg_catalog."default",
+    driver_note text COLLATE pg_catalog."default",
+    CONSTRAINT driver_trip_assignments_pkey PRIMARY KEY (assignment_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.favourite_cars
+(
+    user_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    car_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    added_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT favourite_cars_pkey PRIMARY KEY (user_id, car_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.motorbike_documentation
@@ -235,7 +275,8 @@ CREATE TABLE IF NOT EXISTS public.motorbike_reviews
     bike_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
     date date,
     review text COLLATE pg_catalog."default",
-    rating numeric(2, 1)
+    rating numeric(2, 1),
+    booking_id character varying(20) COLLATE pg_catalog."default"
 );
 
 CREATE TABLE IF NOT EXISTS public.notifications
@@ -243,10 +284,8 @@ CREATE TABLE IF NOT EXISTS public.notifications
     notif_id character varying(20) COLLATE pg_catalog."default" NOT NULL,
     user_id character varying(20) COLLATE pg_catalog."default",
     message text COLLATE pg_catalog."default",
-    created_at timestamp with time zone DEFAULT now(),
-    is_read boolean DEFAULT false,
-    category character varying(20) DEFAULT 'individual', -- individual, broadcast, group
-    batch_id character varying(20), -- to group notifications sent together
+    created_at date,
+    is_read boolean,
     CONSTRAINT notifications_pkey PRIMARY KEY (notif_id)
 );
 
@@ -274,6 +313,15 @@ CREATE TABLE IF NOT EXISTS public.pickup_info
     pickup_notes text COLLATE pg_catalog."default",
     confirmed boolean DEFAULT false,
     CONSTRAINT pickup_info_pkey PRIMARY KEY (pickup_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.platform_settings
+(
+    setting_key character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    setting_value jsonb,
+    updated_at timestamp with time zone DEFAULT now(),
+    updated_by character varying(20) COLLATE pg_catalog."default",
+    CONSTRAINT platform_settings_pkey PRIMARY KEY (setting_key)
 );
 
 CREATE TABLE IF NOT EXISTS public.return_info
@@ -311,15 +359,17 @@ CREATE TABLE IF NOT EXISTS public.users
     experience integer,
     created_at date,
     nid character varying(16) COLLATE pg_catalog."default",
+    last_active timestamp with time zone,
+    notification_preferences jsonb DEFAULT '{"system": true, "bookings": true, "approvals": true, "financial": true}'::jsonb,
     CONSTRAINT users_pkey PRIMARY KEY (user_id)
 );
 
-CREATE TABLE IF NOT EXISTS public.favourite_cars (
-  user_id VARCHAR(20) REFERENCES users(user_id),
-  car_id  VARCHAR(20) REFERENCES cars(car_id),
-  added_at TIMESTAMPTZ DEFAULT NOW(),
-  PRIMARY KEY (user_id, car_id)
-);
+ALTER TABLE IF EXISTS public.admin_activity_log
+    ADD CONSTRAINT admin_activity_log_admin_id_fkey FOREIGN KEY (admin_id)
+    REFERENCES public.users (user_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE NO ACTION;
+
 
 ALTER TABLE IF EXISTS public.agencies
     ADD CONSTRAINT agencies_address_id_fkey FOREIGN KEY (address_id)
@@ -351,6 +401,13 @@ ALTER TABLE IF EXISTS public.agency_reviews
 
 ALTER TABLE IF EXISTS public.bikes
     ADD CONSTRAINT motorcycles_agency_id_fkey FOREIGN KEY (agency_id)
+    REFERENCES public.agencies (agency_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE NO ACTION;
+
+
+ALTER TABLE IF EXISTS public.booking_info
+    ADD CONSTRAINT booking_info_agency_id_fkey FOREIGN KEY (agency_id)
     REFERENCES public.agencies (agency_id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE NO ACTION;
@@ -396,6 +453,14 @@ ALTER TABLE IF EXISTS public.cars_reviews
     REFERENCES public.users (user_id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE NO ACTION;
+
+
+ALTER TABLE IF EXISTS public.damage_reports
+    ADD CONSTRAINT damage_reports_bike_id_fkey FOREIGN KEY (bike_id)
+    REFERENCES public.bikes (bike_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE NO ACTION
+    NOT VALID;
 
 
 ALTER TABLE IF EXISTS public.damage_reports
@@ -447,6 +512,47 @@ ALTER TABLE IF EXISTS public.driver_reviews
     ON DELETE NO ACTION;
 
 
+ALTER TABLE IF EXISTS public.driver_trip_assignments
+    ADD CONSTRAINT driver_trip_assignments_booking_id_fkey FOREIGN KEY (booking_id)
+    REFERENCES public.booking_info (booking_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE NO ACTION;
+CREATE INDEX IF NOT EXISTS idx_dta_booking_id
+    ON public.driver_trip_assignments(booking_id);
+
+
+ALTER TABLE IF EXISTS public.driver_trip_assignments
+    ADD CONSTRAINT driver_trip_assignments_cancelled_by_fkey FOREIGN KEY (cancelled_by)
+    REFERENCES public.users (user_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE NO ACTION;
+
+
+ALTER TABLE IF EXISTS public.driver_trip_assignments
+    ADD CONSTRAINT driver_trip_assignments_driver_id_fkey FOREIGN KEY (driver_id)
+    REFERENCES public.driver_info (driver_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE NO ACTION;
+CREATE INDEX IF NOT EXISTS idx_dta_driver_id
+    ON public.driver_trip_assignments(driver_id);
+
+
+ALTER TABLE IF EXISTS public.favourite_cars
+    ADD CONSTRAINT favourite_cars_car_id_fkey FOREIGN KEY (car_id)
+    REFERENCES public.cars (car_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE NO ACTION;
+
+
+ALTER TABLE IF EXISTS public.favourite_cars
+    ADD CONSTRAINT favourite_cars_user_id_fkey FOREIGN KEY (user_id)
+    REFERENCES public.users (user_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE NO ACTION;
+CREATE INDEX IF NOT EXISTS idx_favourite_cars_users
+    ON public.favourite_cars(user_id);
+
+
 ALTER TABLE IF EXISTS public.motorbike_documentation
     ADD CONSTRAINT motorbike_documentation_bike_id_fkey FOREIGN KEY (bike_id)
     REFERENCES public.bikes (bike_id) MATCH SIMPLE
@@ -489,6 +595,13 @@ ALTER TABLE IF EXISTS public.pickup_info
     ON DELETE NO ACTION;
 
 
+ALTER TABLE IF EXISTS public.platform_settings
+    ADD CONSTRAINT platform_settings_updated_by_fkey FOREIGN KEY (updated_by)
+    REFERENCES public.users (user_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE NO ACTION;
+
+
 ALTER TABLE IF EXISTS public.return_info
     ADD CONSTRAINT return_info_booking_id_fkey FOREIGN KEY (booking_id)
     REFERENCES public.booking_info (booking_id) MATCH SIMPLE
@@ -516,5 +629,6 @@ ALTER TABLE IF EXISTS public.users
 -- "transmission_type": "Manual, Automatic"
 -- "user_role": "user, car_owner, agency, admin"
 -- "vehicle_type": "Car, Bike"
+-- "assignment_status": "pending, confirmed, cancelled_by_driver, cancelled_by_agency"
 
 END;
