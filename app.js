@@ -73,6 +73,7 @@ app.use('/api/driverProfile', require('./routes/driverProfileRoutes'));
 app.use('/api/driverTrips',   require('./routes/driverTripsRoutes'));
 app.use('/api/pickupRoutes', require('./routes/pickupRoutes'));
 app.use('/api/returnRoutes', require('./routes/returnRoutes'));
+app.use('/api/uploadRoutes', require('./routes/uploadRoutes'));
 
 app.use(notFoundHandler);
 

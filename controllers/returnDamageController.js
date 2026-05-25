@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { generateBookingId } = require('./createIDs');
+const { generateBookingId, generateDamageId } = require('./createIDs');
 
 const createPickup = async (req, res) => {
      const { booking_id, fuel_level, odometer_reading, pickup_notes } = req.body;
@@ -34,16 +34,69 @@ const createReturn = async (req, res) => {
 };
 
 const reportDamage = async (req, res) => {
-     const { booking_id, car_id, reported_by, damage_type, severity, description, photos, estimated_cost } = req.body;
-     const damageId = `DMG-${generateBookingId()}`;
+     const { booking_id, car_id, bike_id, reported_by, damage_type, severity, description, photos, estimated_cost } = req.body;
+     const damageId = generateDamageId();
      try {
           await pool.query(
                `INSERT INTO damage_reports
-               (damage_id, booking_id, car_id, reported_by, report_date, damage_type, severity, description, photos, estimated_cost, status)
-               VALUES ($1, $2, $3, $4, now(), $5, $6, $7, $8, $9, 'reported')`,
-               [damageId, booking_id, car_id, reported_by, damage_type, severity || 'minor', description || null, photos || null, estimated_cost || 0]
+               (damage_id, booking_id, car_id, bike_id, reported_by, report_date, damage_type, severity, description, photos, estimated_cost, status)
+               VALUES ($1, $2, $3, $4, $5, now(), $6, $7, $8, $9, $10, 'Pending')`,
+               [damageId, booking_id, car_id || null, bike_id || null, reported_by, damage_type, severity || 'Low', description || null, Array.isArray(photos) && photos.length > 0 ? photos : null, estimated_cost || 0]
           );
           res.status(201).json({ damage_id: damageId, message: 'Damage report created' });
+     } catch (error) {
+          res.status(500).send(error.message);
+     }
+};
+
+const createUserDamageReport = async (req, res) => {
+     const { booking_id, user_id, damage_type, severity, description, photos } = req.body;
+
+     if (!booking_id || !user_id || !damage_type || !severity) {
+          return res.status(400).json({ message: 'booking_id, user_id, damage_type, and severity are required.' });
+     }
+
+     const damageId = generateDamageId();
+     try {
+          const bookingRes = await pool.query(
+               `SELECT vehicle_id, vehicle_type, user_id FROM booking_info WHERE booking_id = $1`,
+               [booking_id]
+          );
+
+          if (bookingRes.rows.length === 0) {
+               return res.status(404).json({ message: 'Booking not found.' });
+          }
+
+          const booking = bookingRes.rows[0];
+
+          if (booking.user_id !== user_id) {
+               return res.status(403).json({ message: 'You are not authorized to report damage for this booking.' });
+          }
+
+          // Check if booking is Running via a fresh status fetch
+          const statusRes = await pool.query(
+               `SELECT status FROM booking_info WHERE booking_id = $1`,
+               [booking_id]
+          );
+          if (statusRes.rows[0]?.status !== 'Running') {
+               return res.status(400).json({ message: 'Damage reports can only be submitted for bookings that are currently running.' });
+          }
+
+          const isCar   = booking.vehicle_type === 'Car';
+          const car_id  = isCar  ? booking.vehicle_id : null;
+          const bike_id = !isCar ? booking.vehicle_id : null;
+
+          // pg driver converts a JS array directly to a Postgres text[] literal
+          const photosValue = Array.isArray(photos) && photos.length > 0 ? photos : null;
+
+          await pool.query(
+               `INSERT INTO damage_reports
+               (damage_id, booking_id, car_id, bike_id, reported_by, report_date, damage_type, severity, description, photos, status)
+               VALUES ($1, $2, $3, $4, $5, now(), $6, $7, $8, $9, 'Pending')`,
+               [damageId, booking_id, car_id, bike_id, user_id, damage_type, severity, description || null, photosValue]
+          );
+
+          res.status(201).json({ damage_id: damageId, message: 'Damage report submitted successfully.' });
      } catch (error) {
           res.status(500).send(error.message);
      }
@@ -108,4 +161,4 @@ const updateDamageStatus = async (req, res) => {
      }
 };
 
-module.exports = { createPickup, createReturn, reportDamage, getUserDamageReports, getAgencyDamageReports, updateDamageStatus };
+module.exports = { createPickup, createReturn, reportDamage, createUserDamageReport, getUserDamageReports, getAgencyDamageReports, updateDamageStatus };

@@ -49,6 +49,12 @@ function generateNotificationId() {
      return `${prefix}${uniqueNumber}`;
 }
 
+function generateDamageId() {
+     const prefix = "DMG-";
+     const uniqueNumber = Date.now() + Math.floor(Math.random() * 1000);
+     return `${prefix}${uniqueNumber}`;
+}
+
 module.exports = {
      createUserId,
      createAddressId,
@@ -57,5 +63,6 @@ module.exports = {
      generatePaymentId,
      generateBookingId,
      generateTransactionId,
-     generateNotificationId
+     generateNotificationId,
+     generateDamageId,
 };

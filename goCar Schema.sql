@@ -171,9 +171,10 @@ CREATE TABLE IF NOT EXISTS public.damage_reports
     damage_type character varying(100) COLLATE pg_catalog."default",
     severity damage_severity,
     description text COLLATE pg_catalog."default",
-    photos text COLLATE pg_catalog."default",
+    photos text[] COLLATE pg_catalog."default" DEFAULT '{}'::text[],
     estimated_cost integer,
     status damage_status,
+    bike_id character varying(20) COLLATE pg_catalog."default",
     CONSTRAINT damage_reports_pkey PRIMARY KEY (damage_id)
 );
 
