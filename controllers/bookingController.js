@@ -628,7 +628,13 @@ const getAdminBookingDetails = async (req, res) => {
                 u.name as user_name, u.email as user_email, u.phone as user_phone, u.photo as user_photo, u.accountstatus as user_status, u.verified as user_verified,
                 COALESCE(c.brand, bk.brand) as brand, COALESCE(c.model, bk.model) as model, COALESCE(c.images, bk.images) as images,
                 COALESCE(c.rental_price, bk.rental_price) as rental_price,
-                c.seats, c.transmission_type, c.fuel, c.car_features,
+                c.seats, c.transmission_type, c.fuel,
+                ARRAY_REMOVE(ARRAY[
+                    CASE WHEN c.air_conditioning THEN 'Air Conditioning' END,
+                    CASE WHEN c.gps THEN 'GPS' END,
+                    CASE WHEN c.bluetooth THEN 'Bluetooth' END,
+                    CASE WHEN c.central_locking THEN 'Central Locking' END
+                ], NULL) AS car_features,
                 bk.engine_capacity, bk.helmet_count, bk.abs, bk.disk_brake, bk.engine_start_type,
                 ag.agency_name, ag.agency_id,
                 d.name as driver_name, d.phone as driver_phone, d.email as driver_email, d.photo as driver_photo, 
@@ -651,7 +657,7 @@ const getAdminBookingDetails = async (req, res) => {
         const returnRes = await pool.query(`SELECT * FROM return_info WHERE booking_id = $1`, [id]);
 
         // 4. Payments
-        const paymentsRes = await pool.query(`SELECT * FROM payment_info WHERE booking_id = $1 ORDER BY payment_ts DESC`, [id]);
+        const paymentsRes = await pool.query(`SELECT * FROM payment_info WHERE booking_id = $1 ORDER BY date DESC`, [id]);
 
         // 5. Damage Reports
         const damageRes = await pool.query(`

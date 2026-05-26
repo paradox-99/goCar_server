@@ -59,6 +59,7 @@ const getAdminLicenseList = async (req, res) => {
     } = req.query;
 
     const offset = (page - 1) * limit;
+    const expireAlias = type === 'user' ? 'u' : 'd';
     let query = '';
     let countQuery = '';
     let values = [];
@@ -91,7 +92,7 @@ const getAdminLicenseList = async (req, res) => {
     if (status !== 'All') {
         const statusMap = { 'Pending': 'Unverified', 'Valid': 'Verified', 'Expired': 'Expired', 'Rejected': 'Rejected' };
         if (status === 'Expired') {
-            whereClauses.push(`(license_status = 'Expired' OR expire_date < CURRENT_DATE)`);
+            whereClauses.push(`(license_status = 'Expired' OR ${expireAlias}.expire_date < CURRENT_DATE)`);
         } else {
             whereClauses.push(`license_status = $${values.length + 1}`);
             values.push(statusMap[status] || status);
@@ -99,10 +100,10 @@ const getAdminLicenseList = async (req, res) => {
     }
 
     if (expiryStatus !== 'All') {
-        if (expiryStatus === 'Expired') whereClauses.push(`expire_date < CURRENT_DATE`);
-        else if (expiryStatus === 'Expiring Soon') whereClauses.push(`expire_date >= CURRENT_DATE AND expire_date <= CURRENT_DATE + INTERVAL '30 days'`);
-        else if (expiryStatus === 'Valid') whereClauses.push(`expire_date >= CURRENT_DATE`);
-        else if (expiryStatus === 'No Expiry Set') whereClauses.push(`expire_date IS NULL`);
+        if (expiryStatus === 'Expired') whereClauses.push(`${expireAlias}.expire_date < CURRENT_DATE`);
+        else if (expiryStatus === 'Expiring Soon') whereClauses.push(`${expireAlias}.expire_date >= CURRENT_DATE AND ${expireAlias}.expire_date <= CURRENT_DATE + INTERVAL '30 days'`);
+        else if (expiryStatus === 'Valid') whereClauses.push(`${expireAlias}.expire_date >= CURRENT_DATE`);
+        else if (expiryStatus === 'No Expiry Set') whereClauses.push(`${expireAlias}.expire_date IS NULL`);
     }
 
     if (accountStatus !== 'All') {
@@ -116,7 +117,7 @@ const getAdminLicenseList = async (req, res) => {
     }
 
     if (startDate && endDate) {
-        whereClauses.push(`expire_date BETWEEN $${values.length + 1} AND $${values.length + 2}`);
+        whereClauses.push(`${expireAlias}.expire_date BETWEEN $${values.length + 1} AND $${values.length + 2}`);
         values.push(startDate, endDate);
     }
 
@@ -125,9 +126,9 @@ const getAdminLicenseList = async (req, res) => {
         switch (quickFilter) {
             case 'Pending Approval': whereClauses.push(`license_status = 'Unverified'`); break;
             case 'Valid': whereClauses.push(`license_status = 'Verified'`); break;
-            case 'Expired': whereClauses.push(`(expire_date < CURRENT_DATE OR license_status = 'Expired')`); break;
-            case 'Expiring in 7 Days': whereClauses.push(`expire_date >= CURRENT_DATE AND expire_date <= CURRENT_DATE + INTERVAL '7 days'`); break;
-            case 'Expiring in 30 Days': whereClauses.push(`expire_date >= CURRENT_DATE AND expire_date <= CURRENT_DATE + INTERVAL '30 days'`); break;
+            case 'Expired': whereClauses.push(`(${expireAlias}.expire_date < CURRENT_DATE OR license_status = 'Expired')`); break;
+            case 'Expiring in 7 Days': whereClauses.push(`${expireAlias}.expire_date >= CURRENT_DATE AND ${expireAlias}.expire_date <= CURRENT_DATE + INTERVAL '7 days'`); break;
+            case 'Expiring in 30 Days': whereClauses.push(`${expireAlias}.expire_date >= CURRENT_DATE AND ${expireAlias}.expire_date <= CURRENT_DATE + INTERVAL '30 days'`); break;
             case 'Rejected': whereClauses.push(`license_status = 'Rejected'`); break;
             case 'No License Number': whereClauses.push(`(license_number IS NULL OR license_number = '')`); break;
         }
@@ -141,16 +142,16 @@ const getAdminLicenseList = async (req, res) => {
 
     // Default Sorting: Pending > Expired > Expiring 7d > Expiring 30d > Valid
     query += `
-        ORDER BY 
-            CASE 
+        ORDER BY
+            CASE
                 WHEN license_status = 'Unverified' THEN 1
-                WHEN expire_date < CURRENT_DATE THEN 2
-                WHEN expire_date <= CURRENT_DATE + INTERVAL '7 days' THEN 3
-                WHEN expire_date <= CURRENT_DATE + INTERVAL '30 days' THEN 4
+                WHEN ${expireAlias}.expire_date < CURRENT_DATE THEN 2
+                WHEN ${expireAlias}.expire_date <= CURRENT_DATE + INTERVAL '7 days' THEN 3
+                WHEN ${expireAlias}.expire_date <= CURRENT_DATE + INTERVAL '30 days' THEN 4
                 WHEN license_status = 'Verified' THEN 5
                 ELSE 6
             END,
-            expire_date ASC NULLS LAST
+            ${expireAlias}.expire_date ASC NULLS LAST
         LIMIT $${values.length + 1} OFFSET $${values.length + 2}
     `;
 
