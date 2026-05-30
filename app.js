@@ -30,6 +30,9 @@ const app = express();
 app.use(cors({
     origin: [
         'http://localhost:5173',
+        'https://main.d5fszuwnu2de5.amplifyapp.com',
+        'http://gocarfrontend-225989346982-ap-south-1-an.s3-website.ap-south-1.amazonaws.com',
+        'https://dz3uon99ksdwo.cloudfront.net'
     ],
     credentials: true
 }));
