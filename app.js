@@ -37,13 +37,13 @@ app.use(cors({
     credentials: true
 }));
 
+app.set('trust proxy', 1);
+
 // rate limiting
 const limiter = ratelimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100,
     message: 'Too many requests, please try again after some time.',
-    standardHeaders: true,
-    legacyHeaders: false,
 });
 
 app.use(express.json());
