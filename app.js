@@ -50,6 +50,8 @@ app.use(express.json());
 app.use(limiter);
 app.use(cookieParser());
 
+app.get('/', (req, res) => res.json({ success: true, message: 'goCar server is running' }));
+
 app.use('/api/userRoute', userRoutes);
 app.use('/api/carRoutes', carRoutes);
 app.use('/api/bikeRoutes', bikeRoutes);
