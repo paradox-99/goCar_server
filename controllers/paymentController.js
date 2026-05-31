@@ -25,10 +25,10 @@ const makePayment = async (req, res) => {
           total_amount: amount,
           currency: 'BDT',
           tran_id: tran_id,
-          success_url: `http://localhost:3000/api/paymentRoutes/payment/success/${tran_id}?booking_id=${booking_id}`,
-          fail_url: `http://localhost:3000/api/paymentRoutes/paymentFail/${tran_id}`,
-          cancel_url: `http://localhost:3000/api/paymentRoutes/paymentFail/${tran_id}`,
-          ipn_url: 'http://localhost:3030/ipn',
+          success_url: `https://go-car-server-nine.vercel.app/api/paymentRoutes/payment/success/${tran_id}?booking_id=${booking_id}`,
+          fail_url: `https://go-car-server-nine.vercel.app/api/paymentRoutes/paymentFail/${tran_id}`,
+          cancel_url: `https://go-car-server-nine.vercel.app/api/paymentRoutes/paymentFail/${tran_id}`,
+          ipn_url: 'https://go-car-server-nine.vercel.app/ipn',
           shipping_method: 'NO',
           product_name: 'Rent',
           product_category: 'Rent',
@@ -70,7 +70,7 @@ const paymentSuccess = async (req, res) => {
      const data = {
           tran_id: tran_id,
      }
-     const url = `http://localhost:5173/payment/successful/${tran_id}`
+     const url = `https://dz3uon99ksdwo.cloudfront.net/payment/successful/${tran_id}`
 
      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
      sslcz.transactionQueryByTransactionId(data).then(async (apiResponse) => {
@@ -126,7 +126,7 @@ const getPaymentInfo = async (req, res) => {
 
 const paymentFail = async (req, res) => {
      const tran_id = req.params.tran_id;
-     const url = `http://localhost:5173/payment/failed`
+     const url = `https://dz3uon99ksdwo.cloudfront.net/payment/failed`
 
      res.redirect(url)
 }

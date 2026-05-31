@@ -218,7 +218,7 @@ const sendStatusUpdateNotification = async (bookingId, newStatus) => {
                     ${paymentReminder}
 
                     <div style="margin-top: 35px; text-align: center;">
-                        <a href="http://localhost:5173/dashboard/user/bookings" style="background-color: #f58300; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;">View Booking on Dashboard</a>
+                        <a href="https://dz3uon99ksdwo.cloudfront.net/dashboard/user/bookings" style="background-color: #f58300; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;">View Booking on Dashboard</a>
                     </div>
                 </div>
                 

@@ -140,7 +140,7 @@ const createUserDamageReport = async (req, res) => {
                                         </table>
                                    </div>
                                    <div style="margin-top:28px;text-align:center;">
-                                        <a href="http://localhost:5173/dashboard/agency/damage-reports" style="background:#f58300;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;display:inline-block;">
+                                        <a href="https://dz3uon99ksdwo.cloudfront.net/dashboard/agency/damage-reports" style="background:#f58300;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;display:inline-block;">
                                              Review on Dashboard →
                                         </a>
                                    </div>
