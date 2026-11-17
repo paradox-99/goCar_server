@@ -33,7 +33,7 @@ app.use(cors({
         'https://main.d5fszuwnu2de5.amplifyapp.com',
         'http://gocarfrontend-225989346982-ap-south-1-an.s3-website.ap-south-1.amazonaws.com',
         'https://dz3uon99ksdwo.cloudfront.net',
-        'https://gocar-99.web.app/'
+        'https://gocar-99.web.app'
     ],
     credentials: true
 }));
